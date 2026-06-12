@@ -1,0 +1,6 @@
+{
+  "name": "29foods",
+  "description": "An interactive, beautifully balanced website for 29foods outdoor woodfire spots featuring a visual custom platter simulator, high-res food graphics, and a fast takeaway ticketing system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
