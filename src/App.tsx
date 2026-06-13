@@ -153,12 +153,12 @@ export default function App() {
     <div className="relative min-h-screen bg-white text-[#111111] font-sans antialiased overflow-x-clip select-none selection:bg-[#FF7A00]/20">
       
       {/* 29foods Minimal Header Navigation */}
-      <header className="fixed top-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-md border-b border-zinc-150 z-50 px-6 md:px-12 flex items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 h-24 bg-white/80 backdrop-blur-md border-b border-zinc-150 z-50 px-6 md:px-12 flex items-center justify-between">
         <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <img 
             src="/src/assets/images/logo.png" 
             alt="29foods Logo" 
-            className="h-13 md:h-17 w-auto object-contain transition-transform duration-200 hover:scale-[1.02]"
+            className="h-[68px] md:h-[84px] w-auto object-contain transition-transform duration-200 hover:scale-[1.02]"
             onError={(e) => {
               // Custom text logo fallback in case the image cannot render properly
               const target = e.currentTarget;
@@ -463,7 +463,7 @@ export default function App() {
             <img 
               src="/src/assets/images/logo.png" 
               alt="29foods Logo" 
-              className="h-14 md:h-18 w-auto object-contain self-start transition-transform duration-200 hover:scale-[1.02]"
+              className="h-[72px] md:h-[92px] w-auto object-contain self-start transition-transform duration-200 hover:scale-[1.02]"
               onError={(e) => {
                 const target = e.currentTarget;
                 target.style.display = 'none';

@@ -31,15 +31,14 @@ export function getApiUrl(path: string): string {
   // 2. Intelligent external deployment detection
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    const isExternalHost = 
-      host.includes("vercel.app") || 
-      host.includes("netlify.app") || 
-      host.includes("github.dev") || 
-      host.includes("amplifyapp.com") ||
-      host.includes("pages.dev") ||
-      host.includes("web.app"); // Firebase hosting fallback
+    // If we are NOT on localhost/127.0.0.1 and NOT on the actual Cloud Run endpoints (*.run.app),
+    // it means the user is accessing via Vercel, Netlify, or their custom domain.
+    const isSameOriginBackend = 
+      host === "localhost" || 
+      host === "127.0.0.1" || 
+      host.endsWith(".run.app");
 
-    if (isExternalHost) {
+    if (!isSameOriginBackend) {
       // Redirect to the stable active Cloud Run production backend container
       const defaultBackend = "https://ais-pre-zwhqys5pnqqwnhwouwwmbl-398576201729.europe-west2.run.app";
       return `${defaultBackend}${cleanPath}`;
