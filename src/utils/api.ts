@@ -27,8 +27,8 @@ export function getApiUrl(path: string): string {
       host.includes("web.app"); // Firebase hosting fallback
 
     if (isExternalHost) {
-      // Redirect to the active Cloud Run API Container endpoint
-      const defaultBackend = "https://ais-dev-zwhqys5pnqqwnhwouwwmbl-398576201729.europe-west2.run.app";
+      // Redirect to the stable active Cloud Run production backend container
+      const defaultBackend = "https://ais-pre-zwhqys5pnqqwnhwouwwmbl-398576201729.europe-west2.run.app";
       return `${defaultBackend}${cleanPath}`;
     }
   }
