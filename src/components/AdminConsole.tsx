@@ -170,6 +170,91 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   const [newVoucherPercentage, setNewVoucherPercentage] = useState(15);
   const [couponActionMsg, setCouponActionMsg] = useState("");
 
+  // Dynamic campaigns states & handlers
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [newCampaign, setNewCampaign] = useState({
+    id: "",
+    title: "",
+    description: "",
+    type: "free_shipping" as "free_shipping" | "free_topping" | "friend_offer" | "combo_meals",
+    minAmount: 15000,
+    targetToppingId: "beef",
+    requiredQty: 2,
+    requiredCategories: [] as string[],
+    active: true
+  });
+  const [campaignActionMsg, setCampaignActionMsg] = useState("");
+
+  const handleAddCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCampaignActionMsg("");
+    if (!newCampaign.id || !newCampaign.title) {
+      setCampaignActionMsg("Please fill in Campaign ID and Title.");
+      return;
+    }
+    try {
+      const res = await fetch(getApiUrl("/api/campaigns"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCampaign)
+      });
+      if (res.ok) {
+        setCampaignActionMsg("Campaign saved and synchronized successfully!");
+        setNewCampaign({
+          id: "",
+          title: "",
+          description: "",
+          type: "free_shipping",
+          minAmount: 15000,
+          targetToppingId: "beef",
+          requiredQty: 2,
+          requiredCategories: [],
+          active: true
+        });
+        // Reload campaigns
+        const campRes = await fetch(getApiUrl("/api/campaigns"));
+        if (campRes.ok) setCampaigns(await campRes.json());
+      } else {
+        const err = await res.json();
+        setCampaignActionMsg(`Failed to save campaign: ${err.error}`);
+      }
+    } catch (err: any) {
+      setCampaignActionMsg(`Failed to save campaign: ${err.message}`);
+    }
+  };
+
+  const handleToggleCampaign = async (camp: any) => {
+    try {
+      const updated = { ...camp, active: !camp.active };
+      const res = await fetch(getApiUrl("/api/campaigns"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated)
+      });
+      if (res.ok) {
+        setCampaigns(prev => prev.map(c => c.id === camp.id ? updated : c));
+        pushLog(`Campaign '${camp.title}' status updated.`);
+      }
+    } catch (err: any) {
+      pushLog(`Failed to toggle campaign: ${err.message}`);
+    }
+  };
+
+  const handleDeleteCampaign = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this marketing campaign offer?")) return;
+    try {
+      const res = await fetch(getApiUrl(`/api/campaigns/${id}`), {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        setCampaigns(prev => prev.filter(c => c.id !== id));
+        pushLog(`Campaign with ID '${id}' deleted successfully.`);
+      }
+    } catch (err: any) {
+      pushLog(`Failed to delete campaign: ${err.message}`);
+    }
+  };
+
   // Testing & seeding state variables
   const [seedResult, setSeedResult] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -214,6 +299,17 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
       if (toppingsRes.ok) {
         const tVal = await toppingsRes.json();
         setToppings(tVal);
+      }
+
+      // 5.5. Load dynamic campaigns list
+      try {
+        const campaignsRes = await fetch(getApiUrl("/api/campaigns"));
+        if (campaignsRes.ok) {
+          const cVal = await campaignsRes.json();
+          setCampaigns(cVal);
+        }
+      } catch (err) {
+        // Fallback for silent backend handling
       }
 
       pushLog("Full synchronization of database and environment finished!");
@@ -1169,7 +1265,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
 
                 {/* discount codes table */}
                 <div className="space-y-3">
-                  <span className="text-[10px] uppercase text-neutral-400 font-bold block tracking-wider">Voucher codes currently online</span>
+                  <span className="text-[10px] uppercase text-neutral-400 font-bold block tracking-wider font-mono">Voucher codes currently online</span>
                   <div className="space-y-2">
                     {vouchers.map((v) => (
                       <div 
@@ -1190,6 +1286,213 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                         </button>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* DYNAMIC MARKETING CAMPAIGNS UI */}
+                <hr className="border-neutral-850" />
+
+                <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-6">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#FF7A00]" />
+                      <h3 className="text-xs uppercase text-neutral-300 font-bold tracking-wider">Configure Dynamic Upselling Campaign</h3>
+                    </div>
+                    <p className="text-xs text-neutral-500 font-sans mt-0.5">Deploy automated spend-rewards, friend combos, free delivery and side-portions to motivate high basket value in checkout panels.</p>
+                  </div>
+
+                  <form onSubmit={handleAddCampaign} className="space-y-4 text-xs font-mono">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Campaign ID / Key</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. free_delivery_15"
+                          required
+                          value={newCampaign.id}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, id: e.target.value })}
+                          className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Campaign Direct Headline / Title</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Free Delivery Masterclass"
+                          required
+                          value={newCampaign.title}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, title: e.target.value })}
+                          className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Customer-Facing Description Pitch</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Spend ₦15,000 or above on food to unlock absolute free delivery!"
+                        required
+                        value={newCampaign.description}
+                        onChange={(e) => setNewCampaign({ ...newCampaign, description: e.target.value })}
+                        className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Reward Campaign Strategy</label>
+                        <select
+                          value={newCampaign.type}
+                          onChange={(e: any) => setNewCampaign({ ...newCampaign, type: e.target.value })}
+                          className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                        >
+                          <option value="free_shipping">Free Delivery (Spend threshold)</option>
+                          <option value="free_topping">Free Topping/Side Meal (Spend threshold)</option>
+                          <option value="friend_offer">Buy with a Friend (Buy multi-meals)</option>
+                          <option value="combo_meals">Combo Reward (Breakfast + Dinner plates)</option>
+                        </select>
+                      </div>
+
+                      {(newCampaign.type === "free_shipping" || newCampaign.type === "free_topping") && (
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Required Minimum Food Bill (₦)</label>
+                          <input
+                            type="number"
+                            required
+                            min={0}
+                            value={newCampaign.minAmount}
+                            onChange={(e) => setNewCampaign({ ...newCampaign, minAmount: Math.max(0, Number(e.target.value)) })}
+                            className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {newCampaign.type === "friend_offer" && (
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Required Platter Quantity</label>
+                          <input
+                            type="number"
+                            required
+                            min={1}
+                            value={newCampaign.requiredQty}
+                            onChange={(e) => setNewCampaign({ ...newCampaign, requiredQty: Math.max(1, Number(e.target.value)) })}
+                            className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {newCampaign.type !== "free_shipping" && (
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Select Awarded Free Gift / Side</label>
+                          <select
+                            value={newCampaign.targetToppingId}
+                            onChange={(e) => setNewCampaign({ ...newCampaign, targetToppingId: e.target.value })}
+                            className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                          >
+                            <option value="">-- No free topping --</option>
+                            {toppings.map((t) => (
+                              <option key={t.id} value={t.id}>{t.emoji || '🍿'} {t.name} (₦{t.price})</option>
+                            ))}
+                            <option value="water">🥤 Bottle of Spring Water & Multi-pack</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="camp_active"
+                          checked={newCampaign.active}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, active: e.target.checked })}
+                          className="w-4 h-4 text-[#FF7A00] focus:ring-[#FF7A00] bg-neutral-950 border-neutral-800 rounded cursor-pointer"
+                        />
+                        <label htmlFor="camp_active" className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider cursor-pointer">Activate Campaign Immediately</label>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="px-6 py-2.5 bg-orange-600 hover:bg-[#FF7A00] text-white font-black uppercase rounded-xl transition-all tracking-wider cursor-pointer font-sans"
+                      >
+                        Deploy Marketing Campaign
+                      </button>
+                    </div>
+
+                    {campaignActionMsg && (
+                      <p className="text-[10px] text-emerald-400 mt-2">{campaignActionMsg}</p>
+                    )}
+                  </form>
+                </div>
+
+                {/* CURRENT ACTIVE CAMPAIGNS LEDGER */}
+                <div className="space-y-3">
+                  <span className="text-[10px] uppercase text-neutral-400 font-bold block tracking-wider font-mono">Live Campaign Promotions Ledger</span>
+                  <div className="space-y-2">
+                    {campaigns.length === 0 ? (
+                      <div className="p-4 bg-neutral-950 border border-neutral-850 rounded-xl text-xs text-neutral-500 text-center font-sans">
+                        No upselling campaigns currently set. Standard rates apply.
+                      </div>
+                    ) : (
+                      campaigns.map((camp) => (
+                        <div 
+                          key={camp.id} 
+                          className={`p-4 bg-neutral-900 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs ${
+                            camp.active ? 'border-neutral-800' : 'border-neutral-850 opacity-60'
+                          }`}
+                        >
+                          <div className="space-y-1 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-extrabold text-white text-sm tracking-tight">{camp.title}</span>
+                              <span className="text-[9px] px-2 py-0.5 rounded uppercase font-bold bg-zinc-800 border border-zinc-750 text-orange-400">
+                                {camp.type === 'free_shipping' && '🚚 Free Shipping'}
+                                {camp.type === 'free_topping' && '🥩 Portion of Meat Spend Promo'}
+                                {camp.type === 'friend_offer' && '👥 Dining with Friend Bonus'}
+                                {camp.type === 'combo_meals' && '🍳 Breakfast + Dinner Combo Benefit'}
+                              </span>
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-black font-sans ${
+                                camp.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-neutral-800 text-neutral-400'
+                              }`}>
+                                {camp.active ? 'ACTIVE' : 'OFFLINE'}
+                              </span>
+                            </div>
+                            <p className="text-neutral-400 text-xs font-sans font-normal leading-relaxed">{camp.description}</p>
+                            <div className="flex items-center gap-4 text-[10px] text-neutral-500">
+                              {camp.minAmount !== undefined && (
+                                <span>Min Spend: ₦{camp.minAmount.toLocaleString()}</span>
+                              )}
+                              {camp.requiredQty !== undefined && (
+                                <span>Min Platters: {camp.requiredQty} portions</span>
+                              )}
+                              {camp.targetToppingId && (
+                                <span className="font-semibold text-neutral-400">Award Gift: {camp.targetToppingId}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                            <button
+                              onClick={() => handleToggleCampaign(camp)}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                                camp.active 
+                                  ? 'bg-neutral-950 hover:bg-neutral-850 text-neutral-400 border-neutral-800' 
+                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white border-transparent'
+                              }`}
+                            >
+                              {camp.active ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCampaign(camp.id)}
+                              className="p-2 bg-neutral-950 hover:bg-rose-500/10 text-neutral-500 hover:text-rose-500 border border-neutral-800 rounded-lg transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 

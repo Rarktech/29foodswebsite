@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { TakeawayOrderData, PlatterConfiguration } from '../types';
-import { ShoppingBag, Truck, MapPin, Clock, CheckCircle, Phone } from 'lucide-react';
+import { ShoppingBag, Truck, MapPin, Clock, CheckCircle, Phone, Sparkles, Gift } from 'lucide-react';
 import { MASTER_DISHES, SIDE_MEALS_TOPPINGS } from './InteractiveMenu';
 import { getApiUrl } from '../utils/api';
 
@@ -11,6 +11,23 @@ interface BookingSystemProps {
 }
 
 export default function BookingSystem({ platterConfig, cart, setCart }: BookingSystemProps) {
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadCampaigns = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/campaigns'));
+        if (res.ok) {
+          const data = await res.json();
+          setCampaigns(data.filter((c: any) => c.active));
+        }
+      } catch (e) {
+        // quiet fallback
+      }
+    };
+    loadCampaigns();
+  }, []);
+
   const [formData, setFormData] = useState<TakeawayOrderData>({
     name: '',
     phone: '',
@@ -101,6 +118,115 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
     return (dish.basePrice + toppingsPrice) * cfg.quantity;
   };
 
+  const evaluateCampaigns = () => {
+    let foodCost = 0;
+    if (cart.length > 0) {
+      foodCost = cart.reduce((sum, item) => sum + getSinglePlatterPrice(item), 0);
+    } else {
+      foodCost = getSinglePlatterPrice(platterConfig);
+    }
+
+    let totalPlatters = 0;
+    if (cart.length > 0) {
+      totalPlatters = cart.reduce((sum, item) => sum + item.quantity, 0);
+    } else {
+      totalPlatters = platterConfig.quantity;
+    }
+
+    let hasBreakfastDish = false;
+    let hasDinnerDish = false;
+    const itemsToCheck = cart.length > 0 ? cart : [platterConfig];
+    itemsToCheck.forEach(item => {
+      const dish = MASTER_DISHES.find(d => d.id === item.dishId);
+      if (dish) {
+        const cat = dish.category || "";
+        const nameLower = (dish.name || "").toLowerCase();
+        if (["noodles", "sandwich", "frankfurter"].includes(cat) || nameLower.includes("egg") || dish.id.includes("egg")) {
+          hasBreakfastDish = true;
+        }
+        if (["main_meals", "shawarma", "chips"].includes(cat) || nameLower.includes("jollof") || nameLower.includes("rice") || nameLower.includes("egusi") || nameLower.includes("yam")) {
+          hasDinnerDish = true;
+        }
+      }
+    });
+
+    let freeDeliveryUnlocked = false;
+    const unlockedGiftNames: string[] = [];
+    const upsellPrompts: { text: string; delta?: number; id: string; type: string; minAmount?: number }[] = [];
+
+    campaigns.forEach(camp => {
+      if (camp.type === 'free_shipping') {
+        if (foodCost >= (camp.minAmount || 15000)) {
+          freeDeliveryUnlocked = true;
+          unlockedGiftNames.push(`${camp.title || "Free Delivery"}: Waived Delivery Fee! 🚚`);
+        } else {
+          const delta = (camp.minAmount || 15000) - foodCost;
+          upsellPrompts.push({
+            id: camp.id,
+            type: 'free_shipping',
+            text: `Add ₦${delta.toLocaleString()} more to unlock completely FREE DELIVERY! 🚚`,
+            delta,
+            minAmount: camp.minAmount || 15000
+          });
+        }
+      }
+
+      if (camp.type === 'free_topping') {
+        if (foodCost >= (camp.minAmount || 12000)) {
+          const toppingName = camp.targetToppingId === "beef" ? "Beef Portion" : camp.targetToppingId;
+          unlockedGiftNames.push(`${camp.title || "Free portion of meat"}: Free extra portion of ${toppingName}! 🥩`);
+        } else {
+          const delta = (camp.minAmount || 12000) - foodCost;
+          const toppingName = camp.targetToppingId === "beef" ? "Beef portion" : camp.targetToppingId;
+          upsellPrompts.push({
+            id: camp.id,
+            type: 'free_topping',
+            text: `Spend ₦${delta.toLocaleString()} more to get a FREE premium portion of ${toppingName}! 🥩`,
+            delta,
+            minAmount: camp.minAmount || 12000
+          });
+        }
+      }
+
+      if (camp.type === 'friend_offer') {
+        if (totalPlatters >= (camp.requiredQty || 2)) {
+          unlockedGiftNames.push(`${camp.title || "Friend Discount"}: Free Cold Spring Water! 🥤`);
+        } else {
+          upsellPrompts.push({
+            id: camp.id,
+            type: 'friend_offer',
+            text: `Add 1 more Platter portion to get FREE cold spring water for you & your friend! 👥🥤`
+          });
+        }
+      }
+
+      if (camp.type === 'combo_meals') {
+        if (hasBreakfastDish && hasDinnerDish) {
+          unlockedGiftNames.push(`${camp.title || "Combo Reward"}: Breakfast + Dinner reward portion of Peppered Chicken unlocked! 🍗`);
+        } else if (!hasBreakfastDish && hasDinnerDish) {
+          upsellPrompts.push({
+            id: camp.id,
+            type: 'combo_meals',
+            text: `Add a Quick Breakfast plate (Yam & Eggs, Noodles) to unlock a portion of Peppered Chicken for free! 🍳+🍗`
+          });
+        } else if (hasBreakfastDish && !hasDinnerDish) {
+          upsellPrompts.push({
+            id: camp.id,
+            type: 'combo_meals',
+            text: `Add a Jollof or Egusi dinner plate to unlock a portion of Peppered Chicken for free! 🍛+🍗`
+          });
+        }
+      }
+    });
+
+    return {
+      freeDeliveryUnlocked,
+      unlockedGiftNames,
+      upsellPrompts,
+      foodCost
+    };
+  };
+
   const computeTotalPrice = () => {
     let total = 0;
     if (cart.length > 0) {
@@ -109,8 +235,12 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
       total = getSinglePlatterPrice(platterConfig);
     }
 
+    const { freeDeliveryUnlocked } = evaluateCampaigns();
+
     if (formData.method === 'delivery') {
-      total += 1500; // ₦1,500 shipping
+      if (!freeDeliveryUnlocked) {
+        total += 1500; // Only add ₦1,500 shipping if free delivery isn't earned
+      }
     }
 
     if (appliedDiscount > 0) {
@@ -191,11 +321,17 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
 
     // Synchronous callbacks to satisfy Paystack type checks in any transpile target
     const handleSuccessCallback = (response: any) => {
+      const { unlockedGiftNames } = evaluateCampaigns();
+      const rewardsNote = unlockedGiftNames.length > 0 
+        ? `\n\n[🎁 PROMO REWARDS APPLIED: ${unlockedGiftNames.join(', ')}]`
+        : '';
+
       const newOrder: TakeawayOrderData = {
         ...formData,
         id: orderId,
         customPlatters_v2: cart.length > 0 ? [...cart] : [platterConfig],
         paymentStatus: 'success',
+        dietaryNotes: `${formData.dietaryNotes || ''}${rewardsNote}`.trim(),
         paymentReference: response.reference || response.transaction || `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
       };
 
@@ -589,6 +725,75 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
                     </p>
                   )}
                 </div>
+
+                {/* UPSELLING & MARKETING CAMPAIGN CORNER */}
+                {(() => {
+                  const { unlockedGiftNames, upsellPrompts, foodCost } = evaluateCampaigns();
+                  if (unlockedGiftNames.length > 0 || upsellPrompts.length > 0) {
+                    return (
+                      <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3 font-sans">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-orange-500 animate-pulse" />
+                          <span className="text-[10px] uppercase font-bold text-zinc-700 tracking-wider font-mono">29foods Exclusive Ember Promo Rewards</span>
+                        </div>
+
+                        {/* Unlocked bonuses */}
+                        {unlockedGiftNames.length > 0 && (
+                          <div className="space-y-1.5 p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-600 font-extrabold flex items-center gap-1">
+                              <Gift className="w-3 h-3" /> Unlocked order benefits & gifts
+                            </span>
+                            <div className="space-y-1">
+                              {unlockedGiftNames.map((gift, idx) => (
+                                <div key={idx} className="text-xs text-zinc-700 font-bold flex items-center gap-1.5 pl-0.5">
+                                  <span className="text-emerald-500">✓</span> {gift}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Pending Upselling Prompts */}
+                        {upsellPrompts.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="text-[9px] uppercase tracking-wider text-amber-600 font-extrabold block">
+                              ⚡ Unlock additional gifts & perks:
+                            </span>
+                            <div className="space-y-2">
+                              {upsellPrompts.map((p, idx) => {
+                                // Compute progress if minAmount exists
+                                const progressPercent = p.minAmount ? Math.min(100, Math.round((foodCost / p.minAmount) * 100)) : undefined;
+
+                                return (
+                                  <div key={idx} className="p-2.5 bg-white rounded-xl border border-zinc-150 space-y-1.5">
+                                    <p className="text-xs text-zinc-600 font-semibold leading-normal">
+                                      {p.text}
+                                    </p>
+                                    {progressPercent !== undefined && (
+                                        <div className="space-y-1">
+                                          <div className="w-full h-1.5 bg-zinc-250 rounded-full overflow-hidden">
+                                            <div 
+                                              className="h-full bg-gradient-to-r from-amber-500 to-[#FF7A00] transition-all duration-500"
+                                              style={{ width: `${progressPercent}%` }}
+                                            />
+                                          </div>
+                                          <div className="flex justify-between text-[9px] text-zinc-400 font-mono">
+                                            <span>Current: ₦{foodCost.toLocaleString()}</span>
+                                            <span>Target: ₦{p.minAmount?.toLocaleString()} ({progressPercent}%)</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {formData.method === 'delivery' && (
                   <div>

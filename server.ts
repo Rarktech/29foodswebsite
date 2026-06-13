@@ -231,6 +231,53 @@ const INITIAL_MENU_ITEMS: MenuItem[] = [
 ];
 
 // Load local database structured store
+const INITIAL_CAMPAIGNS = [
+  {
+    id: "free_delivery",
+    title: "Free Delivery Masterclass",
+    description: "Spend ₦15,000 or above on food to unlock absolute free delivery!",
+    type: "free_shipping",
+    minAmount: 15000,
+    active: true
+  },
+  {
+    id: "free_beef_high",
+    title: "Portion of Beef Upsell Offer",
+    description: "Spend ₦12,000 or above and get a Portion of juicy Peppered Beef completely FREE!",
+    type: "free_topping",
+    minAmount: 12000,
+    targetToppingId: "beef",
+    active: true
+  },
+  {
+    id: "free_beef_mid",
+    title: "Portion of Beef Mid-Tier Promo",
+    description: "Spend ₦5,000 or above and get a free Portion of Beef!",
+    type: "free_topping",
+    minAmount: 5000,
+    targetToppingId: "beef",
+    active: false
+  },
+  {
+    id: "friend_water",
+    title: "Dining with a Friend?",
+    description: "Buy 2 or more main meals in the same order and unlock free cold bottles of spring water!",
+    type: "friend_offer",
+    requiredQty: 2,
+    targetToppingId: "egg",
+    active: true
+  },
+  {
+    id: "combo_breakfast_dinner",
+    title: "Breakfast & Dinner Combo Reward",
+    description: "Buy breakfast dishes (Yam & Eggs, Noodles) and dinner plates together in your cart and unlock a portion of Peppered Chicken for free! 🍗",
+    type: "combo_meals",
+    requiredCategories: ["breakfast", "dinner"],
+    targetToppingId: "chicken",
+    active: true
+  }
+];
+
 const INITIAL_TOPPING_ITEMS = [
   { id: 'plantain', name: 'Plantain (Dodo)', price: 800, emoji: '🍌' },
   { id: 'salad', name: 'Salad portion', price: 800, emoji: '🥗' },
@@ -257,6 +304,10 @@ const loadData = () => {
         parsed.toppings = INITIAL_TOPPING_ITEMS;
         updated = true;
       }
+      if (!parsed.campaigns) {
+        parsed.campaigns = INITIAL_CAMPAIGNS;
+        updated = true;
+      }
       if (updated) {
         fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), "utf-8");
       }
@@ -274,7 +325,8 @@ const loadData = () => {
       { code: "WOODFIRE29", percentage: 15, active: true },
       { code: "DOYL29", percentage: 10, active: true }
     ] as Discount[],
-    toppings: INITIAL_TOPPING_ITEMS
+    toppings: INITIAL_TOPPING_ITEMS,
+    campaigns: INITIAL_CAMPAIGNS
   };
   
   fs.writeFileSync(DATA_FILE, JSON.stringify(defaultState, null, 2), "utf-8");
@@ -1445,6 +1497,80 @@ app.delete("/api/discounts/:code", async (req, res) => {
   }
 });
 
+// 7.5. Dynamic marketing campaigns API support
+app.get("/api/campaigns", async (req, res) => {
+  try {
+    const dbCampaigns = await querySupabase("campaigns?select=*");
+    if (dbCampaigns && dbCampaigns.length > 0) {
+      dbStore.campaigns = dbCampaigns;
+      saveData(dbStore);
+    }
+  } catch (err) {
+    // Suppress and fallback to local JSON database store
+  }
+  res.json(dbStore.campaigns || []);
+});
+
+app.post("/api/campaigns", async (req, res) => {
+  const { id, title, description, type, minAmount, targetToppingId, requiredQty, requiredCategories, active } = req.body;
+  if (!id || !title || !type) {
+    return res.status(400).json({ error: "Campaign Id, Title, and Type are required." });
+  }
+
+  const existingIdx = (dbStore.campaigns || []).findIndex((c: any) => c.id === id);
+  const newCampaign = {
+    id,
+    title,
+    description,
+    type,
+    minAmount: minAmount !== undefined ? Number(minAmount) : undefined,
+    targetToppingId,
+    requiredQty: requiredQty !== undefined ? Number(requiredQty) : undefined,
+    requiredCategories: Array.isArray(requiredCategories) ? requiredCategories : undefined,
+    active: active === true || active === "true"
+  };
+
+  if (!dbStore.campaigns) {
+    dbStore.campaigns = [];
+  }
+
+  if (existingIdx >= 0) {
+    dbStore.campaigns[existingIdx] = newCampaign;
+  } else {
+    dbStore.campaigns.push(newCampaign);
+  }
+  saveData(dbStore);
+
+  try {
+    await querySupabase("campaigns", {
+      method: "POST",
+      headers: { "Prefer": "resolution=merge-duplicates" },
+      body: JSON.stringify(newCampaign)
+    });
+    res.json({ success: true, campaign: newCampaign, supabaseSynced: true });
+  } catch (err: any) {
+    res.json({ success: true, campaign: newCampaign, supabaseSynced: false, error: err.message });
+  }
+});
+
+app.delete("/api/campaigns/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!dbStore.campaigns) {
+    dbStore.campaigns = [];
+  }
+  dbStore.campaigns = dbStore.campaigns.filter((c: any) => c.id !== id);
+  saveData(dbStore);
+
+  try {
+    await querySupabase(`campaigns?id=eq.${id}`, {
+      method: "DELETE"
+    });
+    res.json({ success: true, deletedId: id, supabaseSynced: true });
+  } catch (err: any) {
+    res.json({ success: true, deletedId: id, supabaseSynced: false, error: err.message });
+  }
+});
+
 // 8. Provision & seed Supabase with core firewood recipe catalog
 app.post("/api/admin/supabase-seed", async (req, res) => {
   try {
@@ -1493,6 +1619,20 @@ app.post("/api/admin/supabase-seed", async (req, res) => {
         seededResults.push(`Synced topping/side item '${top.name}'`);
       } catch (e: any) {
         seededResults.push(`Skipped/Failed topping '${top.name}': ${e.message}`);
+      }
+    }
+
+    // Seed Dynamic Marketing Campaigns
+    for (const camp of INITIAL_CAMPAIGNS) {
+      try {
+        await querySupabase("campaigns", {
+          method: "POST",
+          headers: { "Prefer": "resolution=merge-duplicates" },
+          body: JSON.stringify(camp)
+        });
+        seededResults.push(`Synced marketing campaign '${camp.title}'`);
+      } catch (e: any) {
+        seededResults.push(`Skipped/Failed campaign '${camp.title}': ${e.message}`);
       }
     }
 
