@@ -4,6 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>29foods // Interactive Cinematic Dining & Platters</title>
+    <script>
+      // Shim to make window.fetch fully writable and configurable, preventing 
+      // "Cannot set property fetch of #<Window> which has only a getter" errors in sandboxed iframes.
+      try {
+        (function() {
+          var originalFetch = window.fetch;
+          if (originalFetch) {
+            Object.defineProperty(window, 'fetch', {
+              get: function() {
+                return originalFetch;
+              },
+              set: function(val) {
+                originalFetch = val;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        })();
+      } catch (err) {
+        console.warn("Could not patch window.fetch accessor:", err);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

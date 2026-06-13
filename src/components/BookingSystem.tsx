@@ -31,6 +31,22 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paystackLoaded, setPaystackLoaded] = useState(false);
+
+  // Load Paystack Inline script on mount
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://js.paystack.co/v1/inline.js';
+    script.async = true;
+    script.onload = () => setPaystackLoaded(true);
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   // Coupon Discount Codes States
   const [couponCode, setCouponCode] = useState('');
@@ -112,7 +128,8 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
       })
       .filter(Boolean);
     const toppingsStr = toppingNames.length > 0 ? ` + ${toppingNames.join(', ')}` : '';
-    return `${dish.name}${toppingsStr} (x${cfg.quantity})`;
+    const ownerStr = cfg.ownerName ? ` [🏷️ Pack for: ${cfg.ownerName}]` : '';
+    return `${dish.name}${toppingsStr}${ownerStr} (x${cfg.quantity})`;
   };
 
   const activePriceTotal = computeTotalPrice();
@@ -165,40 +182,87 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
       return;
     }
 
+    setIsProcessingPayment(true);
+    setErrors({});
+
     const orderId = `29F-${Math.floor(100000 + Math.random() * 900000)}`;
-    const newOrder: TakeawayOrderData = {
-      ...formData,
-      id: orderId,
-      customPlatters_v2: cart.length > 0 ? [...cart] : [platterConfig],
-    };
+    const paystackPublicKey = (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_35db150ec843fdf9bacc311e92d83da19e075db3';
 
     try {
-      // POST the takeaway booking to our Node.js custom backend API (proxies to Telegram & Supabase)
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newOrder),
-      });
-      if (res.ok) {
-        const bodyValue = await res.json();
-        if (bodyValue && bodyValue.order) {
-          // Use server-generated timestamp/id
-          newOrder.id = bodyValue.order.id;
-        }
+      if (!(window as any).PaystackPop) {
+        throw new Error("Paystack secure payment gateway. Please check your internet connection and verify that 'js.paystack.co' script is permitted to load.");
       }
-    } catch (err) {
-      console.warn("Fullstack API direct dispatch offline, using local standalone cache backup", err);
-    }
 
-    const updatedOrders = [newOrder, ...orderHistory];
-    setOrderHistory(updatedOrders);
-    try {
-      localStorage.setItem('29foods_orders', JSON.stringify(updatedOrders));
-    } catch {
-      // quiet fallback
-    }
+      const handler = (window as any).PaystackPop.setup({
+        key: paystackPublicKey,
+        email: 'peterrichard013@gmail.com',
+        amount: activePriceTotal * 100, // Paystack expects Kobo
+        currency: 'NGN',
+        ref: orderId,
+        metadata: {
+          custom_fields: [
+            {
+              display_name: "Customer Name",
+              variable_name: "customer_name",
+              value: formData.name
+            },
+            {
+              display_name: "Phone Number",
+              variable_name: "phone_number",
+              value: formData.phone
+            }
+          ]
+        },
+        callback: async function(response: any) {
+          const newOrder: TakeawayOrderData = {
+            ...formData,
+            id: orderId,
+            customPlatters_v2: cart.length > 0 ? [...cart] : [platterConfig],
+            paymentStatus: 'success',
+            paymentReference: response.reference
+          };
 
-    setIsSuccess(true);
+          try {
+            // POST the takeaway booking to our Node.js custom backend API (proxies to Telegram & Supabase)
+            const res = await fetch('/api/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newOrder),
+            });
+            if (res.ok) {
+              const bodyValue = await res.json();
+              if (bodyValue && bodyValue.order) {
+                // Use server-generated timestamp/id if available
+                newOrder.id = bodyValue.order.id;
+              }
+            }
+          } catch (err) {
+            console.warn("Fullstack API direct dispatch offline, using local standalone cache backup", err);
+          }
+
+          const updatedOrders = [newOrder, ...orderHistory];
+          setOrderHistory(updatedOrders);
+          try {
+            localStorage.setItem('29foods_orders', JSON.stringify(updatedOrders));
+          } catch {
+            // quiet fallback
+          }
+
+          setIsSuccess(true);
+          setIsProcessingPayment(false);
+        },
+        onClose: function() {
+          setIsProcessingPayment(false);
+          setErrors(prev => ({ ...prev, paystack: "Transaction was closed. Online payment is required to activate your takeaway woodfire ticket." }));
+        }
+      });
+
+      handler.openIframe();
+    } catch (err: any) {
+      console.error("Paystack popup instantiation error", err);
+      setIsProcessingPayment(false);
+      setErrors(prev => ({ ...prev, paystack: err.message || "Failed to initialize Paystack Secure Inline." }));
+    }
   };
 
   const handleReset = () => {
@@ -349,6 +413,22 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
                       )}
                     </div>
                   </div>
+                  {orderHistory[0]?.paymentStatus && (
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-zinc-400">PAYMENT STATUS:</span>
+                      <span className="font-bold text-emerald-600 uppercase">
+                        ✅ SUCCESS
+                      </span>
+                    </div>
+                  )}
+                  {orderHistory[0]?.paymentReference && (
+                    <div className="flex justify-between border-b pb-2">
+                      <span className="text-zinc-400">TRANSACTION REF:</span>
+                      <span className="font-mono text-[9px] text-zinc-500 break-all">
+                        {orderHistory[0].paymentReference}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between pt-1">
                     <span className="font-semibold text-zinc-800">TOTAL BILLING (₦):</span>
                     <span className="font-black text-lg text-[#D62828]">
@@ -510,12 +590,36 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
                   />
                 </div>
 
+                {/* Paystack sandbox integration parameters */}
+                <div className="p-4 bg-zinc-100 rounded-2xl border border-zinc-200 text-[11px] font-mono text-zinc-650 leading-relaxed space-y-1.5">
+                  <span className="font-bold text-zinc-800 uppercase block text-[10px] text-[#D62828] flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#D62828] animate-pulse"></span>
+                    💳 PAYSTACK SANDBOX INTEGRATION METADATA:
+                  </span>
+                  <p>Configure these variables inside your <b>Paystack Dashboard Settings</b> under API Keys & Webhooks:</p>
+                  <div className="space-y-1 pl-2">
+                    <p>• <b>Test Callback URL:</b> <code className="bg-white px-1.5 py-0.5 rounded border text-[#D62828] select-all">https://29foods.vercel.app/</code></p>
+                    <p>• <b>Test Webhook URL:</b> <code className="bg-white px-1.5 py-0.5 rounded border text-[#D62828] select-all break-all">{(import.meta as any).env.VITE_APP_URL || window.location.origin}/api/paystack-webhook</code></p>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-2">Use any Paystack test card credentials (usually just simulating any random expiry & CVV to get instant checkout confirmation).</p>
+                </div>
+
+                {errors.paystack && (
+                  <p className="text-xs font-mono text-[#D62828] bg-red-50 p-3.5 rounded-xl border border-red-100 leading-normal">
+                    ⚠️ {errors.paystack}
+                  </p>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full py-4 rounded-xl bg-[#D62828] hover:bg-[#FF7A00] text-white font-mono text-xs uppercase tracking-wider font-bold shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 select-none"
+                  disabled={isProcessingPayment}
+                  className="w-full py-4 rounded-xl bg-[#D62828] hover:bg-[#FF7A00] disabled:bg-zinc-400 text-white font-mono text-xs uppercase tracking-wider font-bold shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 select-none"
                 >
                   <ShoppingBag className="w-4 h-4 text-[#FF7A00]" />
-                  Place Takeaway Order • ₦{activePriceTotal.toLocaleString()}
+                  {isProcessingPayment 
+                    ? "Opening Paystack Secure Popup..." 
+                    : `Place Takeaway Order • ₦${activePriceTotal.toLocaleString()}`
+                  }
                 </button>
               </form>
             )}

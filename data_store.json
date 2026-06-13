@@ -1,0 +1,283 @@
+{
+  "menu": [
+    {
+      "id": "spaghetti_chicken_beef",
+      "name": "Spaghetti & Chicken/Beef",
+      "category": "main_meals",
+      "description": "Savory stir-fried long-strand pasta simmered in rich pepper tomato sauce.",
+      "basePrice": 3600,
+      "calories": "610 kcal",
+      "spicyLevel": 2,
+      "plainImage": "/src/assets/images/spaghetti_plain_1781261959247.jpg",
+      "dodoImage": "/src/assets/images/spaghetti_dodo_1781261974936.jpg",
+      "features": [
+        "Scotch bonnet glaze",
+        "Stir-fried durum paste",
+        "Savory seasoning"
+      ]
+    },
+    {
+      "id": "rice_turkey",
+      "name": "Jollof/Fried Rice & Turkey",
+      "category": "main_meals",
+      "description": "Woodfire long grain rice served with grilled or fried giant seasoned Turkey.",
+      "basePrice": 7000,
+      "calories": "890 kcal",
+      "spicyLevel": 2,
+      "plainImage": "/src/assets/images/jollof_plain_1781261864825.jpg",
+      "dodoImage": "/src/assets/images/jollof_dodo_1781261920626.jpg",
+      "features": [
+        "Crisp golden turkey side",
+        "Smoky rice base",
+        "Rich native sauce"
+      ]
+    },
+    {
+      "id": "spaghetti_turkey",
+      "name": "Spaghetti & Turkey",
+      "category": "main_meals",
+      "description": "Durum tomato spaghetti skillet stir-fry set alongside a portion of our golden-fried Turkey.",
+      "basePrice": 6800,
+      "calories": "830 kcal",
+      "spicyLevel": 2,
+      "plainImage": "/src/assets/images/spaghetti_plain_1781261959247.jpg",
+      "dodoImage": "/src/assets/images/spaghetti_dodo_1781261974936.jpg",
+      "features": [
+        "Hearty Turkey wing",
+        "Bold bell pepper reduction",
+        "Dynamic spice profile"
+      ]
+    },
+    {
+      "id": "yam_egg_sauce",
+      "name": "Boiled Yam & Egg Sauce",
+      "category": "main_meals",
+      "description": "Traditional native white yams boiled fluffy soft, accompanied by seasoned tomato egg scramble.",
+      "basePrice": 3700,
+      "calories": "530 kcal",
+      "spicyLevel": 1,
+      "plainImage": "/src/assets/images/boiled_yam_eggsauce_1781260539426.jpg",
+      "dodoImage": "/src/assets/images/yam_egg_dodo_1781261903040.jpg",
+      "features": [
+        "Buttery yam slices",
+        "Farm-fresh country egg sauce",
+        "Scallion garnish"
+      ]
+    },
+    {
+      "id": "fried_yam_egg_sauce",
+      "name": "Fried Yam & Egg Sauce",
+      "category": "main_meals",
+      "description": "Crispiest hand-sliced sweet organic yams fried golden, with hot tomato scrambled egg sauce.",
+      "basePrice": 4000,
+      "calories": "590 kcal",
+      "spicyLevel": 1,
+      "plainImage": "/src/assets/images/boiled_yam_eggsauce_1781260539426.jpg",
+      "dodoImage": "/src/assets/images/yam_egg_dodo_1781261903040.jpg",
+      "features": [
+        "Crispy crunchy shell",
+        "Savory onion tomato egg",
+        "Hot woodside style"
+      ]
+    },
+    {
+      "id": "small_beef_shawarma",
+      "name": "Small Beef Shawarma",
+      "category": "shawarma",
+      "description": "Toasted flatbread wrap filled with wood-grilled spiced shaved beef and garlic mayo sauce.",
+      "basePrice": 2800,
+      "calories": "410 kcal",
+      "spicyLevel": 1,
+      "plainImage": "/src/assets/images/shawarma_plain_1781261987810.jpg",
+      "dodoImage": "/src/assets/images/shawarma_dodo_1781262003933.jpg",
+      "features": [
+        "Woodfire beef slices",
+        "Garlic paste",
+        "Toasted flatbread wrap"
+      ]
+    },
+    {
+      "id": "big_beef_shawarma",
+      "name": "Big Beef Shawarma",
+      "category": "shawarma",
+      "description": "An upgraded size of our classic loaded spiced beef wrap with shredded fresh purple cabbage.",
+      "basePrice": 3100,
+      "calories": "550 kcal",
+      "spicyLevel": 1,
+      "plainImage": "/src/assets/images/shawarma_plain_1781261987810.jpg",
+      "dodoImage": "/src/assets/images/shawarma_dodo_1781262003933.jpg",
+      "features": [
+        "Double meat portions",
+        "Aromatic spices",
+        "Cabbage shreddings"
+      ]
+    },
+    {
+      "id": "small_ch_shawarma",
+      "name": "Small Chicken Shawarma",
+      "category": "shawarma",
+      "description": "Toasted flatbread rolled around wood-grilled marinated shaver chicken breasts, with garlic toum.",
+      "basePrice": 3000,
+      "calories": "450 kcal",
+      "spicyLevel": 1,
+      "plainImage": "/src/assets/images/shawarma_plain_1781261987810.jpg",
+      "dodoImage": "/src/assets/images/shawarma_dodo_1781262003933.jpg",
+      "features": [
+        "Premium garlic toum",
+        "Herbaceous marinades",
+        "Perfect single size"
+      ]
+    },
+    {
+      "id": "royal_shawarma",
+      "name": "Royal Shawarma Wrapper",
+      "category": "shawarma",
+      "description": "The ultimate size! Chicken, beef, hotdogs, and extra cheese rolled in a premium crispy pita.",
+      "basePrice": 4000,
+      "calories": "890 kcal",
+      "spicyLevel": 2,
+      "plainImage": "/src/assets/images/shawarma_plain_1781261987810.jpg",
+      "dodoImage": "/src/assets/images/shawarma_dodo_1781262003933.jpg",
+      "features": [
+        "Double protein hybrid",
+        "Premium hotdog slice",
+        "Cheddar cheese core"
+      ]
+    },
+    {
+      "id": "noodles_egg",
+      "name": "Noodles & Egg",
+      "category": "noodles",
+      "description": "Aromatic express noodles cooked in spice broth, crowned with a fried or boiled farm egg.",
+      "basePrice": 2500,
+      "calories": "490 kcal",
+      "spicyLevel": 2,
+      "plainImage": "/src/assets/images/noodles_topdown_1781279953591.jpg",
+      "dodoImage": null,
+      "features": [
+        "Spiced soup glaze",
+        "Perfect farm egg",
+        "Scallion garnish"
+      ]
+    },
+    {
+      "id": "special_chicken_chips",
+      "name": "Chicken & Chips (Special)",
+      "category": "chips",
+      "description": "Our ultimate chip pack with our premium glazed peppered or caramel-roasted giant double chicken.",
+      "basePrice": 5000,
+      "calories": "890 kcal",
+      "spicyLevel": 2,
+      "plainImage": "/src/assets/images/chicken_chips_topdown_1781279971163.jpg",
+      "dodoImage": null,
+      "features": [
+        "Peppered or Caramel glazed",
+        "Wood-roasted aromatics",
+        "Gourmet packaging"
+      ]
+    },
+    {
+      "id": "sweet_tooth_smoothie",
+      "name": "Sweet Tooth Smoothie",
+      "category": "drinks",
+      "description": "Blend of pureed strawberries, honey, and Greek yogurt to satisfy sugar cravings.",
+      "basePrice": 3000,
+      "calories": "280 kcal",
+      "spicyLevel": 0,
+      "plainImage": "/src/assets/images/signature_platter_1781259994332.jpg",
+      "dodoImage": null,
+      "features": [
+        "All organic honey",
+        "Vibrant berry extract",
+        "Served child-cold"
+      ]
+    },
+    {
+      "id": "rice_chicken_beef",
+      "name": "Jollof/Fried Rice & Chicken/Beef",
+      "category": "main_meals",
+      "description": "Our award-winning Nigerian firewood-style rice served with your choice of protein.",
+      "basePrice": 3800,
+      "calories": "680 kcal",
+      "spicyLevel": 2,
+      "plainImage": "/src/assets/images/noodles_topdown_1781279953591.jpg",
+      "dodoImage": "/src/assets/images/jollof_dodo_1781261920626.jpg",
+      "features": [
+        "Ember-roasted aroma",
+        "Double pepper slurry",
+        "Choice of Beef or Chicken"
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "name": "Richard Eze",
+      "phone": "6575675",
+      "address": "",
+      "method": "pickup",
+      "time": "13:00",
+      "dietaryNotes": "",
+      "totalPrice": 23800,
+      "customPlatters_v2": [
+        {
+          "dishId": "special_chicken_chips",
+          "hasPlantain": false,
+          "selectedToppingIds": [],
+          "toppingQuantities": {},
+          "quantity": 4
+        },
+        {
+          "dishId": "rice_chicken_beef",
+          "hasPlantain": false,
+          "selectedToppingIds": [],
+          "toppingQuantities": {},
+          "quantity": 1
+        }
+      ],
+      "id": "29F-377140",
+      "createdAt": "2026-06-12T21:46:11.785Z",
+      "status": "completed"
+    },
+    {
+      "name": "jennio",
+      "phone": "934893849",
+      "address": "No 4 omueke street Elele Alimini Rivers State",
+      "method": "delivery",
+      "time": "13:00",
+      "dietaryNotes": "nothing",
+      "totalPrice": 22950,
+      "customPlatters_v2": [
+        {
+          "dishId": "royal_shawarma",
+          "hasPlantain": false,
+          "selectedToppingIds": [
+            "chicken",
+            "beef",
+            "caramel_chicken"
+          ],
+          "toppingQuantities": {
+            "chicken": 1,
+            "beef": 1,
+            "caramel_chicken": 1
+          },
+          "quantity": 3
+        }
+      ],
+      "id": "29F-574544",
+      "createdAt": "2026-06-12T21:34:27.225Z",
+      "status": "completed"
+    }
+  ],
+  "discounts": [
+    {
+      "code": "WOODFIRE29",
+      "percentage": 15,
+      "active": true
+    },
+    {
+      "code": "DOYL29",
+      "percentage": 10,
+      "active": true
+    }
+  ]
+}

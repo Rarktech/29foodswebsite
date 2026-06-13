@@ -50,6 +50,7 @@ export interface PlatterConfiguration {
   selectedToppingIds: string[];
   toppingQuantities?: Record<string, number>;
   quantity: number;
+  ownerName?: string;
 }
 
 export interface TakeawayOrderData {
@@ -61,6 +62,9 @@ export interface TakeawayOrderData {
   time: string;
   dietaryNotes: string;
   customPlatterOrder?: PlatterConfiguration; // Link custom platter to order
+  customPlatterns_v2?: PlatterConfiguration[]; // Support multiple custom platters (typo compat)
   customPlatters_v2?: PlatterConfiguration[]; // Support multiple custom platters in one order
   totalPrice: number;
+  paymentStatus?: 'pending' | 'success' | 'failed';
+  paymentReference?: string;
 }

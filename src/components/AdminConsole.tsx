@@ -57,6 +57,7 @@ interface Order {
   dietaryNotes?: string;
   totalPrice: number;
   customPlatterns_v2?: OrderItem[];
+  customPlatters_v2?: OrderItem[];
   createdAt: string;
   status: "pending" | "processing" | "dispatched" | "completed";
 }
@@ -982,24 +983,57 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                             )}
 
                             {/* platters breakdown list */}
-                            {or.customPlatterns_v2 && or.customPlatterns_v2.length > 0 ? (
-                              <div className="space-y-1 divide-y divide-neutral-900">
-                                {or.customPlatterns_v2.map((plat, idx) => {
-                                  const dish = menuItems.find(m => m.id === plat.dishId) || { name: plat.dishId };
-                                  return (
-                                    <div key={idx} className="pt-1.5 first:pt-0 pb-1.5">
-                                      <p className="font-bold text-white">● {dish.name} <span className="text-neutral-500">x{plat.quantity}</span></p>
-                                      {plat.hasPlantain && <p className="text-neutral-500 text-[10px] pl-3">+ Scented Woodfired Plantain dodo included</p>}
-                                      {plat.selectedToppingIds && plat.selectedToppingIds.length > 0 && (
-                                        <p className="text-neutral-500 text-[10px] pl-3">+ Extras: {plat.selectedToppingIds.join(", ")}</p>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-neutral-400">Custom firewood top-down chef assembly platter selection</p>
-                            )}
+                            {(() => {
+                              const platters = or.customPlatters_v2 || or.customPlatterns_v2 || [];
+                              if (platters.length > 0) {
+                                return (
+                                  <div className="space-y-2 divide-y divide-neutral-900">
+                                    {platters.map((plat, idx) => {
+                                      const dish = menuItems.find(m => m.id === plat.dishId) || { name: plat.dishId };
+                                      const mappedToppingNames = (plat.selectedToppingIds || []).map(tid => {
+                                        const mapping: Record<string, string> = {
+                                          plantain: 'Plantain (Dodo)',
+                                          salad: 'Salad portion',
+                                          egg: 'Boiled/Fried Egg',
+                                          hotdog: 'Hotdog',
+                                          moimoi: 'Moi Moi wrap',
+                                          turkey: 'Turkey portion',
+                                          chicken: 'Chicken portion',
+                                          beef: 'A portion of Beef',
+                                          caramel_chicken: 'Caramel Chicken',
+                                          peppered_chicken: 'Peppered Chicken',
+                                          peppered_beef: 'Peppered Beef',
+                                          peppered_turkey: 'Peppered Turkey',
+                                          popcorn: 'Popcorn'
+                                        };
+                                        const qty = plat.toppingQuantities?.[tid] ?? 1;
+                                        const mapped = mapping[tid] || tid;
+                                        return `${mapped}${qty > 1 ? ` (x${qty})` : ''}`;
+                                      });
+                                      return (
+                                        <div key={idx} className="pt-2 first:pt-0 pb-2">
+                                          <p className="font-bold text-white flex justify-between items-center">
+                                            <span>● {dish.name}</span>
+                                            <span className="text-[#FF7A00] font-mono text-xs font-bold bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">x{plat.quantity}</span>
+                                          </p>
+                                          {plat.ownerName && (
+                                            <p className="text-emerald-400 font-sans text-[11px] font-semibold pl-3 mt-1.5 flex items-center gap-1.5">
+                                              <span>👤 Pack for:</span> <span className="bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2.5 py-0.5 rounded text-[10px] font-mono uppercase font-bold">{plat.ownerName}</span>
+                                            </p>
+                                          )}
+                                          {plat.hasPlantain && <p className="text-zinc-400 text-[10px] pl-3 mt-1 flex items-center gap-1"><span>🍌</span> Includes Fried Plantain (Dodo)</p>}
+                                          {mappedToppingNames.length > 0 && (
+                                            <p className="text-zinc-400 text-[10px] pl-3 mt-1 flex items-center gap-1"><span>➕</span> Sides/Add-ons: <span className="text-zinc-300 font-medium">{mappedToppingNames.join(", ")}</span></p>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              } else {
+                                return <p className="text-neutral-400 font-sans text-xs">Custom firewood top-down chef assembly platter selection</p>;
+                              }
+                            })()}
                           </div>
 
                         </div>

@@ -439,6 +439,7 @@ export default function InteractiveMenu({
   
   const [activeCategory, setActiveCategory] = useState<'all' | 'main_meals' | 'shawarma' | 'chips' | 'noodles' | 'sandwich' | 'frankfurter' | 'drinks'>('all');
   const [showAddBanner, setShowAddBanner] = useState(false);
+  const [activeOwnerName, setActiveOwnerName] = useState('');
   const [dishesList, setDishesList] = useState<DishItem[]>(MASTER_DISHES);
 
   // Poll for dynamic menu updates from fullstack Express/Supabase backend
@@ -482,9 +483,11 @@ export default function InteractiveMenu({
       selectedToppingIds: [...(platterConfig.selectedToppingIds || [])],
       toppingQuantities: platterConfig.toppingQuantities ? { ...platterConfig.toppingQuantities } : {},
       quantity: platterConfig.quantity,
+      ownerName: activeOwnerName.trim() || undefined,
     };
 
     setCart(prev => [...prev, itemToSave]);
+    setActiveOwnerName('');
     
     // Reset active config back to default so they can design a new one
     setPlatterConfig({
@@ -1003,6 +1006,23 @@ export default function InteractiveMenu({
                 Inspect / Assemble active platter
               </h4>
 
+              {/* Package Labeling Name Input */}
+              <div className="mb-4 bg-zinc-900/30 p-3 rounded-xl border border-zinc-850/60">
+                <label className="block font-mono text-[9px] text-[#FF7A00] uppercase tracking-widest mb-1.5 font-bold">
+                  👤 Packaging Label (Whose Platter is this?)
+                </label>
+                <input
+                  type="text"
+                  value={activeOwnerName}
+                  onChange={(e) => setActiveOwnerName(e.target.value)}
+                  placeholder="e.g. Peter, Sis Mary, Dad (Optional, written on container lid)"
+                  className="w-full bg-zinc-950 border border-zinc-800 focus:border-[#FF7A00] text-zinc-200 placeholder-zinc-600 text-xs rounded-xl px-4 py-2 outline-none font-sans transition-all"
+                />
+                <p className="text-[9px] text-zinc-500 mt-1 font-sans">
+                  Helpful so friends/family know which item belongs to whom when the order arrives.
+                </p>
+              </div>
+
               {/* Invoice breakdown slots */}
               <div className="space-y-3 mb-6 bg-zinc-900/40 p-4 rounded-xl border border-zinc-850">
                 <div className="flex justify-between items-center text-xs">
@@ -1089,6 +1109,11 @@ export default function InteractiveMenu({
                             <div className="font-sans font-bold text-white line-clamp-1">
                               {dish.name}
                             </div>
+                            {item.ownerName && (
+                              <div className="inline-block mt-1 bg-orange-950/40 text-orange-400 border border-orange-900/40 text-[9px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wider font-bold">
+                                👤 Pack for: {item.ownerName}
+                              </div>
+                            )}
                             {toppingsDesc && (
                               <div className="text-[10px] text-zinc-400 font-sans line-clamp-1 mt-0.5">
                                 + {toppingsDesc}
