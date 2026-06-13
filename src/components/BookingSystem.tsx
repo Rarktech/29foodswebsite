@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { TakeawayOrderData, PlatterConfiguration } from '../types';
 import { ShoppingBag, Truck, MapPin, Clock, CheckCircle, Phone } from 'lucide-react';
 import { MASTER_DISHES, SIDE_MEALS_TOPPINGS } from './InteractiveMenu';
+import { getApiUrl } from '../utils/api';
 
 interface BookingSystemProps {
   platterConfig: PlatterConfiguration;
@@ -59,7 +60,7 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
     setIsValidating(true);
     setCouponMessage(null);
     try {
-      const res = await fetch('/api/discounts/validate', {
+      const res = await fetch(getApiUrl('/api/discounts/validate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: couponCode }),
@@ -198,7 +199,7 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
         paymentReference: response.reference || response.transaction || `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
       };
 
-      fetch('/api/orders', {
+      fetch(getApiUrl('/api/orders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newOrder),

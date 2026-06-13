@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActiveDishId, PlatterConfiguration } from '../types';
 import { Check, Sparkles, ShoppingBag, ShoppingCart, Plus, Minus, Info, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getApiUrl } from '../utils/api';
 
 interface InteractiveMenuProps {
   platterConfig: PlatterConfiguration;
@@ -446,7 +447,7 @@ export default function InteractiveMenu({
   React.useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const res = await fetch('/api/menu');
+        const res = await fetch(getApiUrl('/api/menu'));
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {

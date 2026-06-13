@@ -26,6 +26,7 @@ import {
   FolderOpen
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { getApiUrl } from "../utils/api";
 
 interface AdminConsoleProps {
   isAdminMode: boolean;
@@ -170,28 +171,28 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
     setIsRefreshing(true);
     try {
       // 1. Connection Configurations
-      const configRes = await fetch("/api/config");
+      const configRes = await fetch(getApiUrl("/api/config"));
       if (configRes.ok) {
         const cVal = await configRes.json();
         setConfig(cVal);
       }
 
       // 2. Load dynamic live menu
-      const menuRes = await fetch("/api/menu");
+      const menuRes = await fetch(getApiUrl("/api/menu"));
       if (menuRes.ok) {
         const mVal = await menuRes.json();
         setMenuItems(mVal);
       }
 
       // 3. Load takeaway order books
-      const ordersRes = await fetch("/api/orders");
+      const ordersRes = await fetch(getApiUrl("/api/orders"));
       if (ordersRes.ok) {
         const oVal = await ordersRes.json();
         setOrders(oVal);
       }
 
       // 4. Load dynamic vouchers list
-      const vouchersRes = await fetch("/api/discounts");
+      const vouchersRes = await fetch(getApiUrl("/api/discounts"));
       if (vouchersRes.ok) {
         const vVal = await vouchersRes.json();
         setVouchers(vVal);
@@ -217,7 +218,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
     e.preventDefault();
     setLoginError("");
     try {
-      const res = await fetch("/api/admin/login", {
+      const res = await fetch(getApiUrl("/api/admin/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password })
@@ -243,7 +244,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   // Status transitions
   const updateOrderStatus = async (orderId: string, status: "pending" | "processing" | "dispatched" | "completed") => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
+      const res = await fetch(getApiUrl(`/api/orders/${orderId}/status`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
@@ -264,7 +265,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
     if (!newVoucherCode.trim()) return;
     setCouponActionMsg("Deploying coupon...");
     try {
-      const res = await fetch("/api/discounts", {
+      const res = await fetch(getApiUrl("/api/discounts"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -285,7 +286,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
 
   const handleDeleteVoucher = async (code: string) => {
     try {
-      const res = await fetch(`/api/discounts/${code}`, {
+      const res = await fetch(getApiUrl(`/api/discounts/${code}`), {
         method: "DELETE"
       });
       if (res.ok) {
@@ -301,7 +302,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   const handleDeploySeed = async () => {
     setSeedResult("Syncing core West African catalog tables inside Supabase...");
     try {
-      const res = await fetch("/api/admin/supabase-seed", { method: "POST" });
+      const res = await fetch(getApiUrl("/api/admin/supabase-seed"), { method: "POST" });
       const data = await res.json();
       if (res.ok) {
         setSeedResult(`SUCCESS: ${data.message || ""}\nSynced Logs:\n${data.log?.join("\n")}`);
@@ -319,7 +320,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   const handleTriggerTelegramAlert = async () => {
     setTestResult("Connecting to secure Telegram notification relays...");
     try {
-      const res = await fetch("/api/config/simulation-trigger", {
+      const res = await fetch(getApiUrl("/api/config/simulation-trigger"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "telegram_test" })
@@ -390,7 +391,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
       const url = editingItem ? `/api/menu/${editingItem.id}` : "/api/menu";
       const method = editingItem ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      const res = await fetch(getApiUrl(url), {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -419,7 +420,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   const handleDeleteDish = async (dishId: string) => {
     if (!confirm("Are you positive you wish to completely discard this food item from the menu?")) return;
     try {
-      const res = await fetch(`/api/menu/${dishId}`, {
+      const res = await fetch(getApiUrl(`/api/menu/${dishId}`), {
         method: "DELETE"
       });
       if (res.ok) {
