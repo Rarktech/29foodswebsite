@@ -32,7 +32,7 @@ export interface ToppingItem {
   emoji: string;
 }
 
-export const SIDE_MEALS_TOPPINGS: ToppingItem[] = [
+export let SIDE_MEALS_TOPPINGS: ToppingItem[] = [
   { id: 'plantain', name: 'Plantain (Dodo)', price: 800, emoji: '🍌' },
   { id: 'salad', name: 'Salad portion', price: 800, emoji: '🥗' },
   { id: 'egg', name: 'Boiled/Fried Egg', price: 400, emoji: '🍳' },
@@ -442,8 +442,9 @@ export default function InteractiveMenu({
   const [showAddBanner, setShowAddBanner] = useState(false);
   const [activeOwnerName, setActiveOwnerName] = useState('');
   const [dishesList, setDishesList] = useState<DishItem[]>(MASTER_DISHES);
+  const [toppingsList, setToppingsList] = useState<ToppingItem[]>(SIDE_MEALS_TOPPINGS);
 
-  // Poll for dynamic menu updates from fullstack Express/Supabase backend
+  // Poll for dynamic menu and toppings database updates from Express/Supabase backend
   React.useEffect(() => {
     const fetchMenu = async () => {
       try {
@@ -452,7 +453,7 @@ export default function InteractiveMenu({
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             setDishesList(data);
-            // Reassign the exported reference so the rest of the application imports get updated dishes too!
+            // Reassign exported reference so the rest of the application imports get updated dishes too!
             MASTER_DISHES.length = 0;
             MASTER_DISHES.push(...data);
           }
@@ -461,8 +462,30 @@ export default function InteractiveMenu({
         console.warn("Backend API offline - operating in local simulated mode with default menu", err);
       }
     };
+
+    const fetchToppings = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/toppings'));
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setToppingsList(data);
+            // Reassign the exported reference so other imports see the changes!
+            SIDE_MEALS_TOPPINGS.length = 0;
+            SIDE_MEALS_TOPPINGS.push(...data);
+          }
+        }
+      } catch (err) {
+        console.warn("Backend API offline - operating in local simulated mode with default toppings", err);
+      }
+    };
+
     fetchMenu();
-    const interval = setInterval(fetchMenu, 5000);
+    fetchToppings();
+    const interval = setInterval(() => {
+      fetchMenu();
+      fetchToppings();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -470,7 +493,7 @@ export default function InteractiveMenu({
   const getPlatterPrice = (cfg: PlatterConfiguration) => {
     const dish = dishesList.find(d => d.id === cfg.dishId) || dishesList[0] || MASTER_DISHES[0];
     const toppingsPrice = (cfg.selectedToppingIds || []).reduce((sum, id) => {
-      const topping = SIDE_MEALS_TOPPINGS.find(t => t.id === id);
+      const topping = toppingsList.find(t => t.id === id);
       const qty = cfg.toppingQuantities?.[id] ?? 1;
       return sum + (topping ? topping.price * qty : 0);
     }, 0);
@@ -589,7 +612,7 @@ export default function InteractiveMenu({
   };
 
   const toppingsPrice = (platterConfig.selectedToppingIds || []).reduce((sum, id) => {
-    const topping = SIDE_MEALS_TOPPINGS.find(t => t.id === id);
+    const topping = toppingsList.find(t => t.id === id);
     const qty = platterConfig.toppingQuantities?.[id] ?? 1;
     return sum + (topping ? topping.price * qty : 0);
   }, 0);
@@ -822,7 +845,7 @@ export default function InteractiveMenu({
 
               {/* Toppings Selection Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {SIDE_MEALS_TOPPINGS.map((topping) => {
+                {toppingsList.map((topping) => {
                   const isChecked = (platterConfig.selectedToppingIds || []).includes(topping.id);
                   const qty = platterConfig.toppingQuantities?.[topping.id] ?? 0;
 
@@ -841,7 +864,13 @@ export default function InteractiveMenu({
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="text-lg mt-0.5">{topping.emoji}</div>
+                        <div className="w-6 h-6 flex-shrink-0 mt-0.5 rounded overflow-hidden flex items-center justify-center bg-zinc-50">
+                          {topping.image ? (
+                            <img src={topping.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="text-lg">{topping.emoji}</div>
+                          )}
+                        </div>
                         <div className="flex-1 text-left space-y-0.5">
                           <div className="text-xs font-bold leading-tight line-clamp-1">{topping.name}</div>
                           <div className="text-[10px] font-mono text-[#D62828] font-bold">
@@ -964,7 +993,7 @@ export default function InteractiveMenu({
                   {/* PHYSICAL TOPPING PARTICLES: Rendered around the circular rim dynamically with Spring physics! */}
                   <AnimatePresence>
                     {(platterConfig.selectedToppingIds || []).map((toppingId, idx) => {
-                      const toppingItem = SIDE_MEALS_TOPPINGS.find(t => t.id === toppingId);
+                      const toppingItem = toppingsList.find(t => t.id === toppingId);
                       if (!toppingItem) return null;
                       const qty = platterConfig.toppingQuantities?.[toppingId] ?? 1;
                       
@@ -983,7 +1012,13 @@ export default function InteractiveMenu({
                           key={toppingId}
                           className="absolute bg-white text-zinc-950 text-[9px] font-mono font-bold px-2.5 py-1.5 rounded-full border border-orange-200 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] flex items-center gap-1.5 uppercase tracking-tight z-35"
                         >
-                          <span className="text-xs">{toppingItem.emoji}</span>
+                          <span className="text-xs flex items-center justify-center">
+                            {toppingItem.image ? (
+                              <img src={toppingItem.image} className="w-5 h-5 rounded-full object-cover inline-block" referrerPolicy="no-referrer" />
+                            ) : (
+                              toppingItem.emoji
+                            )}
+                          </span>
                           <span>{toppingItem.name}{qty > 1 ? ` (x${qty})` : ''}</span>
                         </motion.div>
                       );
@@ -1038,7 +1073,7 @@ export default function InteractiveMenu({
 
                 {/* List chosen toppings in detail */}
                 {(platterConfig.selectedToppingIds || []).map((toppingId) => {
-                  const topping = SIDE_MEALS_TOPPINGS.find(t => t.id === toppingId);
+                  const topping = toppingsList.find(t => t.id === toppingId);
                   if (!topping) return null;
                   const qty = platterConfig.toppingQuantities?.[toppingId] ?? 1;
                   return (
@@ -1099,7 +1134,7 @@ export default function InteractiveMenu({
                     {cart.map((item, idx) => {
                       const dish = dishesList.find(d => d.id === item.dishId) || dishesList[0] || MASTER_DISHES[0];
                       const toppingsDesc = (item.selectedToppingIds || []).map(tid => {
-                        const t = SIDE_MEALS_TOPPINGS.find(topping => topping.id === tid);
+                        const t = toppingsList.find(topping => topping.id === tid);
                         const qty = item.toppingQuantities?.[tid] ?? 1;
                         return t ? `${t.name}${qty > 1 ? ` (x${qty})` : ''}` : '';
                       }).filter(Boolean).join(', ');

@@ -231,11 +231,36 @@ const INITIAL_MENU_ITEMS: MenuItem[] = [
 ];
 
 // Load local database structured store
+const INITIAL_TOPPING_ITEMS = [
+  { id: 'plantain', name: 'Plantain (Dodo)', price: 800, emoji: '🍌' },
+  { id: 'salad', name: 'Salad portion', price: 800, emoji: '🥗' },
+  { id: 'egg', name: 'Boiled/Fried Egg', price: 400, emoji: '🍳' },
+  { id: 'hotdog', name: 'Hotdog', price: 500, emoji: '🌭' },
+  { id: 'moimoi', name: 'Moi Moi wrap', price: 900, emoji: '🫔' },
+  { id: 'turkey', name: 'Turkey portion', price: 4500, emoji: '🍗' },
+  { id: 'chicken', name: 'Chicken portion', price: 1800, emoji: '🍗' },
+  { id: 'beef', name: 'A portion of Beef', price: 1800, emoji: '🥩' },
+  { id: 'caramel_chicken', name: 'Caramel Chicken', price: 2100, emoji: '🍗' },
+  { id: 'peppered_chicken', name: 'Peppered Chicken', price: 2200, emoji: '🌶️' },
+  { id: 'peppered_beef', name: 'Peppered Beef', price: 2200, emoji: '🌶️' },
+  { id: 'peppered_turkey', name: 'Peppered Turkey', price: 5000, emoji: '🌶️' },
+  { id: 'popcorn', name: 'Popcorn', price: 800, emoji: '🍿' }
+];
+
 const loadData = () => {
   if (fs.existsSync(DATA_FILE)) {
     try {
       const data = fs.readFileSync(DATA_FILE, "utf-8");
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      let updated = false;
+      if (!parsed.toppings) {
+        parsed.toppings = INITIAL_TOPPING_ITEMS;
+        updated = true;
+      }
+      if (updated) {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), "utf-8");
+      }
+      return parsed;
     } catch (e) {
       console.error("Failed to parse data file, resetting to defaults", e);
     }
@@ -248,7 +273,8 @@ const loadData = () => {
     discounts: [
       { code: "WOODFIRE29", percentage: 15, active: true },
       { code: "DOYL29", percentage: 10, active: true }
-    ] as Discount[]
+    ] as Discount[],
+    toppings: INITIAL_TOPPING_ITEMS
   };
   
   fs.writeFileSync(DATA_FILE, JSON.stringify(defaultState, null, 2), "utf-8");
@@ -895,6 +921,23 @@ setInterval(() => {
 }, 2000);
 
 
+// Helper to sanitize order payloads before sending to Supabase PostgREST
+function sanitizeOrderForSupabase(order: any) {
+  return {
+    id: order.id,
+    name: order.name,
+    phone: order.phone,
+    address: order.address || null,
+    method: order.method || "pickup",
+    time: order.time || "",
+    dietaryNotes: order.dietaryNotes || null,
+    totalPrice: Number(order.totalPrice) || 0,
+    customPlatterns_v2: order.customPlatterns_v2 || order.customPlatters_v2 || [],
+    createdAt: order.createdAt || new Date().toISOString(),
+    status: order.status || "pending"
+  };
+}
+
 // -------------------------------------------------------------
 // REST API SYSTEM ROUTINGS
 // -------------------------------------------------------------
@@ -939,7 +982,8 @@ app.post("/api/orders", async (req, res) => {
     // Sync order to Supabase
     await querySupabase("orders", {
       method: "POST",
-      body: JSON.stringify(orderData)
+      headers: { "Prefer": "resolution=merge-duplicates" },
+      body: JSON.stringify(sanitizeOrderForSupabase(orderData))
     });
 
     // Ensure both spellings are populated and synchronized
@@ -1007,7 +1051,8 @@ app.post("/api/paystack-webhook", async (req, res) => {
         // Sync update to Supabase orders ledger
         await querySupabase("orders", {
           method: "POST",
-          body: JSON.stringify(dbStore.orders[orderIndex])
+          headers: { "Prefer": "resolution=merge-duplicates" },
+          body: JSON.stringify(sanitizeOrderForSupabase(dbStore.orders[orderIndex]))
         });
 
         // Push detailed Telegram webhook alert
@@ -1238,6 +1283,108 @@ app.delete("/api/menu/:id", async (req, res) => {
   }
 });
 
+// 4.1. Get dynamic list of toppings / add-ons
+app.get("/api/toppings", async (req, res) => {
+  try {
+    const supabaseToppings = await querySupabase("toppings?select=*");
+    if (supabaseToppings && supabaseToppings.length > 0) {
+      dbStore.toppings = supabaseToppings;
+      saveData(dbStore);
+    }
+  } catch (err) {
+    // Fail safe with local
+  }
+  if (!dbStore.toppings) {
+    dbStore.toppings = INITIAL_TOPPING_ITEMS;
+    saveData(dbStore);
+  }
+  res.json(dbStore.toppings);
+});
+
+// 4.2. Create custom topping / add-on item
+app.post("/api/toppings", async (req, res) => {
+  const newTopping = req.body;
+  if (!newTopping.id || !newTopping.name) {
+    return res.status(400).json({ error: "Topping ID and Name are required" });
+  }
+  if (!dbStore.toppings) {
+    dbStore.toppings = [...INITIAL_TOPPING_ITEMS];
+  }
+
+  const idx = dbStore.toppings.findIndex((t: any) => t.id === newTopping.id);
+  if (idx > -1) {
+    dbStore.toppings[idx] = newTopping;
+  } else {
+    dbStore.toppings.push(newTopping);
+  }
+  saveData(dbStore);
+
+  try {
+    await querySupabase("toppings", {
+      method: "POST",
+      headers: { "Prefer": "resolution=merge-duplicates" },
+      body: JSON.stringify(newTopping)
+    });
+    res.status(201).json({ success: true, topping: newTopping, supabaseSynced: true });
+  } catch (err: any) {
+    res.status(201).json({ success: true, topping: newTopping, supabaseSynced: false, error: err.message });
+  }
+});
+
+// 4.3. Update live topping / add-on item
+app.put("/api/toppings/:id", async (req, res) => {
+  const { id } = req.params;
+  const updatedData = req.body;
+  if (!dbStore.toppings) {
+    dbStore.toppings = [...INITIAL_TOPPING_ITEMS];
+  }
+
+  const idx = dbStore.toppings.findIndex((t: any) => t.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Topping not found inside db stack" });
+  }
+
+  dbStore.toppings[idx] = { ...dbStore.toppings[idx], ...updatedData, id };
+  saveData(dbStore);
+
+  try {
+    const patchBody = { ...updatedData };
+    delete patchBody.id;
+    await querySupabase(`toppings?id=eq.${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patchBody)
+    });
+    res.json({ success: true, topping: dbStore.toppings[idx], supabaseSynced: true });
+  } catch (err: any) {
+    res.json({ success: true, topping: dbStore.toppings[idx], supabaseSynced: false, error: err.message });
+  }
+});
+
+// 4.4. Delete live topping / add-on item
+app.delete("/api/toppings/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!dbStore.toppings) {
+    dbStore.toppings = [...INITIAL_TOPPING_ITEMS];
+  }
+
+  const initialLen = dbStore.toppings.length;
+  dbStore.toppings = dbStore.toppings.filter((t: any) => t.id !== id);
+  saveData(dbStore);
+
+  if (dbStore.toppings.length === initialLen) {
+    return res.status(404).json({ error: "Topping was not found inside db stack" });
+  }
+
+  try {
+    await querySupabase(`toppings?id=eq.${id}`, {
+      method: "DELETE"
+    });
+    res.json({ success: true, deletedId: id, supabaseSynced: true });
+  } catch (err: any) {
+    res.json({ success: true, deletedId: id, supabaseSynced: false, error: err.message });
+  }
+});
+
 // 5. Get all discount coupon codes
 app.get("/api/discounts", async (req, res) => {
   try {
@@ -1332,6 +1479,20 @@ app.post("/api/admin/supabase-seed", async (req, res) => {
         seededResults.push(`Synced coupon code '${disc.code}'`);
       } catch (e: any) {
         seededResults.push(`Skipped code '${disc.code}': ${e.message}`);
+      }
+    }
+
+    // Seed Standard Topping & Side-meal items
+    for (const top of INITIAL_TOPPING_ITEMS) {
+      try {
+        await querySupabase("toppings", {
+          method: "POST",
+          headers: { "Prefer": "resolution=merge-duplicates" },
+          body: JSON.stringify(top)
+        });
+        seededResults.push(`Synced topping/side item '${top.name}'`);
+      } catch (e: any) {
+        seededResults.push(`Skipped/Failed topping '${top.name}': ${e.message}`);
       }
     }
 

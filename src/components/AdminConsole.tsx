@@ -109,12 +109,13 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   
-  const [activeTab, setActiveTab] = useState<"dashboard" | "menu" | "orders" | "discounts" | "supabase">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "menu" | "orders" | "discounts" | "supabase" | "toppings">("dashboard");
   
   // Dynamic datasets
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [vouchers, setVouchers] = useState<Discount[]>([]);
+  const [toppings, setToppings] = useState<any[]>([]);
   
   // Connection and logging status
   const [config, setConfig] = useState<DBConfig>({
@@ -125,6 +126,16 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   const [logs, setLogs] = useState<string[]>(["[SystemInitialization]: Dashboard Console Booted. Connecting API..."]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
+  // CRUD editing states for Toppings / Side meals
+  const [editingTopping, setEditingTopping] = useState<any | null>(null);
+  const [toppingForm, setToppingForm] = useState({
+    id: "",
+    name: "",
+    price: 0,
+    emoji: "🥗",
+    image: ""
+  });
+
   // CRUD editing states for Menu Modal/Form
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -196,6 +207,13 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
       if (vouchersRes.ok) {
         const vVal = await vouchersRes.json();
         setVouchers(vVal);
+      }
+
+      // 5. Load dynamic toppings list
+      const toppingsRes = await fetch(getApiUrl("/api/toppings"));
+      if (toppingsRes.ok) {
+        const tVal = await toppingsRes.json();
+        setToppings(tVal);
       }
 
       pushLog("Full synchronization of database and environment finished!");
@@ -295,6 +313,50 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
       }
     } catch (e: any) {
       pushLog(`Failed to discard coupon code: ${e.message}`);
+    }
+  };
+
+  const handleSaveTopping = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const url = editingTopping ? `/api/toppings/${editingTopping.id}` : "/api/toppings";
+      const method = editingTopping ? "PUT" : "POST";
+      const res = await fetch(getApiUrl(url), {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(toppingForm)
+      });
+      if (res.ok) {
+        pushLog(`Topping '${toppingForm.name}' successfully ${editingTopping ? "updated" : "created"} inside database catalog.`);
+        setEditingTopping(null);
+        setToppingForm({ id: "", name: "", price: 0, emoji: "🥗", image: "" });
+        syncAllData();
+      } else {
+        const error = await res.json();
+        pushLog(`Failed to save topping: ${error.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      pushLog(`Error saving topping: ${err.message}`);
+    }
+  };
+
+  const handleDeleteTopping = async (id: string) => {
+    if (!window.confirm(`Are you sure you want to delete topping portion '${id}'? This will discard it from active catalog.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(getApiUrl(`/api/toppings/${id}`), {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        pushLog(`Topping '${id}' permanently deleted.`);
+        syncAllData();
+      } else {
+        const error = await res.json();
+        pushLog(`Failed to delete topping: ${error.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      pushLog(`Error deleting topping: ${err.message}`);
     }
   };
 
@@ -592,6 +654,18 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
               </button>
 
               <button
+                onClick={() => setActiveTab("toppings")}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                  activeTab === "toppings"
+                    ? "bg-[#FF7A00]/10 text-white font-black border-l-4 border-[#FF7A00]"
+                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                }`}
+              >
+                <PlusCircle className="w-4 h-4 text-amber-500" />
+                <span className="max-md:hidden">Addons & Sides ({toppings.length})</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab("supabase")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                   activeTab === "supabase"
@@ -630,6 +704,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                 {activeTab === "orders" && "Active Booking Dispatches"}
                 {activeTab === "discounts" && "Promo & Voucher Campaign"}
                 {activeTab === "supabase" && "Supabase Cloud Core Control"}
+                {activeTab === "toppings" && "Add-ons & Side Meals Manager"}
               </h1>
               {isRefreshing && (
                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-neutral-500" />
@@ -992,23 +1067,9 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                                     {platters.map((plat, idx) => {
                                       const dish = menuItems.find(m => m.id === plat.dishId) || { name: plat.dishId };
                                       const mappedToppingNames = (plat.selectedToppingIds || []).map(tid => {
-                                        const mapping: Record<string, string> = {
-                                          plantain: 'Plantain (Dodo)',
-                                          salad: 'Salad portion',
-                                          egg: 'Boiled/Fried Egg',
-                                          hotdog: 'Hotdog',
-                                          moimoi: 'Moi Moi wrap',
-                                          turkey: 'Turkey portion',
-                                          chicken: 'Chicken portion',
-                                          beef: 'A portion of Beef',
-                                          caramel_chicken: 'Caramel Chicken',
-                                          peppered_chicken: 'Peppered Chicken',
-                                          peppered_beef: 'Peppered Beef',
-                                          peppered_turkey: 'Peppered Turkey',
-                                          popcorn: 'Popcorn'
-                                        };
+                                        const foundTopping = toppings.find(t => t.id === tid);
                                         const qty = plat.toppingQuantities?.[tid] ?? 1;
-                                        const mapped = mapping[tid] || tid;
+                                        const mapped = foundTopping ? foundTopping.name : tid;
                                         return `${mapped}${qty > 1 ? ` (x${qty})` : ''}`;
                                       });
                                       return (
@@ -1136,6 +1197,210 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
             )}
 
             {/* ------------------------------------------------------------- */}
+            {/* TAB D.2: TOPPINGS & SIDES MANAGER */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === "toppings" && (
+              <div className="space-y-8 animate-fade-in font-mono">
+                
+                {/* 1. Add / Edit Topping Card */}
+                <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-6">
+                  <div>
+                    <h3 className="text-xs uppercase text-neutral-300 font-bold">
+                      {editingTopping ? "Modify Side Meal / Add-On / Sport Extra Properties" : "Deploy New Side Meal / Add-On / Sport Extra Item"}
+                    </h3>
+                    <p className="text-xs text-neutral-500 font-sans mt-0.5">
+                      Sides and add-ons are displayed dynamically in the woodfire builder platter drawer and order dispatches.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSaveTopping} className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                    <div className="space-y-1.5 col-span-1 md:col-span-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Unique Topping ID (No spaces)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. plantain, extra_chicken"
+                            required
+                            disabled={!!editingTopping}
+                            value={toppingForm.id}
+                            onChange={(e) => setToppingForm(prev => ({ ...prev, id: e.target.value.toLowerCase().replace(/\s+/g, "_") }))}
+                            className="w-full p-3.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700 disabled:opacity-50 font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Display Name / Title</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Organic Salad"
+                            required
+                            value={toppingForm.name}
+                            onChange={(e) => setToppingForm(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full p-3.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Price (₦)</label>
+                      <input
+                        type="number"
+                        required
+                        value={toppingForm.price}
+                        onChange={(e) => setToppingForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                        className="w-full p-3.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Fallback Emoji Symbol</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 🥗"
+                        required
+                        value={toppingForm.emoji}
+                        onChange={(e) => setToppingForm(prev => ({ ...prev, emoji: e.target.value }))}
+                        className="w-full p-3.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700 font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 col-span-1 md:col-span-2">
+                      <span className="text-neutral-400 block tracking-wider font-extrabold uppercase text-[9px] mb-1">📷 Upload Image from Device</span>
+                      <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setToppingForm(prev => ({ ...prev, image: reader.result as string }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="hidden"
+                            id="topping-image-upload"
+                          />
+                          <label
+                            htmlFor="topping-image-upload"
+                            className="flex-1 text-center py-2.5 px-4 bg-neutral-900 border border-neutral-800 hover:border-[#FF7A00] text-neutral-300 font-medium rounded-lg text-xs cursor-pointer select-none transition-colors"
+                          >
+                            Choose Image (Computer/Phone)...
+                          </label>
+                          {toppingForm.image && (
+                            <button
+                              type="button"
+                              onClick={() => setToppingForm(prev => ({ ...prev, image: "" }))}
+                              className="px-3 py-2.5 bg-red-950 text-red-400 font-bold text-xs rounded-lg hover:bg-red-900"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
+                        {toppingForm.image ? (
+                          <div className="flex items-center gap-3 bg-neutral-900 p-2 rounded border border-neutral-800">
+                            <img
+                              src={toppingForm.image}
+                              alt="Topping payload thumbnail"
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                            <div>
+                              <span className="text-white block font-bold">Image loaded successfully</span>
+                              <span className="text-[10px] text-zinc-500 font-sans block truncate max-w-sm">Will render in place of '{toppingForm.emoji}' fallback emoji</span>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="col-span-1 md:col-span-2 flex gap-3">
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-[#FF7A00] hover:bg-orange-600 text-white font-black uppercase rounded-xl transition-all tracking-wider cursor-pointer flex-1 font-mono text-xs"
+                      >
+                        {editingTopping ? "Update & Sync Topping Properties" : "Deploy Dynamic Side / Add-On"}
+                      </button>
+                      
+                      {editingTopping && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingTopping(null);
+                            setToppingForm({ id: "", name: "", price: 0, emoji: "🥗", image: "" });
+                          }}
+                          className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold uppercase rounded-xl cursor-pointer font-mono text-xs"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                {/* 2. Toppings List Grid */}
+                <div className="space-y-3">
+                  <span className="text-[10px] uppercase text-neutral-400 font-bold block tracking-wider">Currently Available Sides, Add-ons &amp; Extras ({toppings.length})</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {toppings.map((top) => (
+                      <div 
+                        key={top.id} 
+                        className="p-4 bg-neutral-900 border border-neutral-850 rounded-2xl flex flex-col justify-between gap-4 text-xs font-mono"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-neutral-950 border border-neutral-800 overflow-hidden flex items-center justify-center text-xl">
+                            {top.image ? (
+                              <img src={top.image} className="w-full h-full object-cover" />
+                            ) : (
+                              top.emoji
+                            )}
+                          </div>
+                          <div>
+                            <span className="font-extrabold text-white text-xs block line-clamp-1">{top.name}</span>
+                            <span className="text-zinc-500 text-[10px] block mt-0.5">ID: {top.id}</span>
+                            <span className="text-orange-500 font-extrabold text-xs block mt-1">₦{top.price.toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 justify-end pt-2 border-t border-neutral-850">
+                          <button
+                            onClick={() => {
+                              setEditingTopping(top);
+                              setToppingForm({
+                                id: top.id,
+                                name: top.name,
+                                price: top.price,
+                                emoji: top.emoji || "🥗",
+                                image: top.image || ""
+                              });
+                            }}
+                            className="p-2 bg-neutral-850 hover:bg-neutral-800 hover:text-white text-neutral-400 rounded-lg transition-all cursor-pointer"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDeleteTopping(top.id)}
+                            className="p-2 bg-neutral-850 hover:bg-rose-500/10 text-neutral-400 hover:text-rose-500 rounded-lg transition-all cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
             {/* TAB E: SUPABASE DB MANAGEMENT & MANUAL SCHEMAS */}
             {/* ------------------------------------------------------------- */}
             {activeTab === "supabase" && (
@@ -1195,6 +1460,15 @@ CREATE TABLE IF NOT EXISTS discounts (
   code TEXT PRIMARY KEY,
   percentage INTEGER NOT NULL,
   active BOOLEAN DEFAULT TRUE
+);
+
+-- Create toppings Table
+CREATE TABLE IF NOT EXISTS toppings (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  price NUMERIC NOT NULL,
+  emoji TEXT NOT NULL DEFAULT '🥗',
+  image TEXT
 );`}
                       </pre>
                     </div>
@@ -1395,6 +1669,35 @@ CREATE TABLE IF NOT EXISTS discounts (
                     />
                   </div>
 
+                  {/* Option C: Local Computer/Phone File Upload */}
+                  <div className="space-y-1.5 leading-none">
+                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[8.5px]">Option B: Upload Cover Image from Computer / Phone</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="dish-cover-upload"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setDishForm(prev => ({ ...prev, plainImage: reader.result as string }));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="dish-cover-upload"
+                        className="flex-1 text-center py-2.5 px-4 bg-neutral-900 border border-neutral-800 hover:border-[#FF7A00] text-neutral-300 font-medium rounded-lg text-xs cursor-pointer select-none transition-colors"
+                      >
+                        Choose Image (Computer/Phone)...
+                      </label>
+                    </div>
+                  </div>
+
                   {/* Option 1: System assets library gallery */}
                   <div className="space-y-2 leading-none">
                     <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[8.5px]">Option B: Select from West African Firewood gallery assets ({DEFAULT_SYSTEM_PLATES.length})</label>
@@ -1430,14 +1733,38 @@ CREATE TABLE IF NOT EXISTS discounts (
 
                   {/* Optional Side-dish image with plantain dodo */}
                   <div className="space-y-1.5 leading-none">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[8.5px]">Optional: Plate Image with dodo plantain toppings link (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="Paste cover photo with dodo plantain addon URL..."
-                      value={dishForm.dodoImage}
-                      onChange={(e) => setDishForm(prev => ({ ...prev, dodoImage: e.target.value }))}
-                      className="w-full p-3 bg-neutral-900 border border-neutral-800 focus:border-[#FF7A00] rounded-lg text-white font-mono text-xs focus:outline-none placeholder-neutral-700"
-                    />
+                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[8.5px]">Optional: Plate Image with dodo plantain toppings (Link or upload)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Paste cover photo with dodo plantain addon URL..."
+                        value={dishForm.dodoImage}
+                        onChange={(e) => setDishForm(prev => ({ ...prev, dodoImage: e.target.value }))}
+                        className="flex-1 p-3 bg-neutral-900 border border-neutral-800 focus:border-[#FF7A00] rounded-lg text-white font-mono text-xs focus:outline-none placeholder-neutral-700"
+                      />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="dish-dodo-upload"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setDishForm(prev => ({ ...prev, dodoImage: reader.result as string }));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="dish-dodo-upload"
+                        className="py-2.5 px-4 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 text-xs rounded-lg cursor-pointer flex items-center justify-center font-bold"
+                      >
+                        Upload
+                      </label>
+                    </div>
                   </div>
 
                   {/* Image render test preview */}

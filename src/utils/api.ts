@@ -9,9 +9,22 @@ export function getApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
   // 1. Explicitly check for user-defined VITE_API_URL (e.g. customized Vercel config)
-  const envUrl = (import.meta as any).env.VITE_API_URL;
-  if (envUrl) {
-    const base = envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+  let envUrl = (import.meta as any).env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string') {
+    let base = envUrl.trim();
+    
+    // De-duplicate ending slashes
+    while (base.endsWith('/')) {
+      base = base.slice(0, -1);
+    }
+
+    // Defensive check: If they appended '/api' at the end of their VITE_API_URL on Vercel
+    // (e.g., "https://xyz.run.app/api"), and our cleanPath already has "/api/...",
+    // we must prevent overlapping paths like "/api/api/..." by stripping "/api" from cleanPath.
+    if (base.endsWith('/api') && cleanPath.startsWith('/api')) {
+      return `${base}${cleanPath.slice(4)}`; // Strip '/api' (4 characters)
+    }
+
     return `${base}${cleanPath}`;
   }
 
