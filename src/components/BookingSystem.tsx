@@ -188,12 +188,64 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
     const orderId = `29F-${Math.floor(100000 + Math.random() * 900000)}`;
     const paystackPublicKey = (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_35db150ec843fdf9bacc311e92d83da19e075db3';
 
+    // Synchronous callbacks to satisfy Paystack type checks in any transpile target
+    const handleSuccessCallback = (response: any) => {
+      const newOrder: TakeawayOrderData = {
+        ...formData,
+        id: orderId,
+        customPlatters_v2: cart.length > 0 ? [...cart] : [platterConfig],
+        paymentStatus: 'success',
+        paymentReference: response.reference || response.transaction || `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+      };
+
+      fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newOrder),
+      })
+      .then(res => {
+        if (res.ok) {
+          return res.json();
+        }
+        return { order: null };
+      })
+      .then(bodyValue => {
+        if (bodyValue && bodyValue.order) {
+          newOrder.id = bodyValue.order.id;
+        }
+        completeOrderProcess(newOrder);
+      })
+      .catch(err => {
+        console.warn("Fullstack API direct dispatch offline, using local standalone cache backup", err);
+        completeOrderProcess(newOrder);
+      });
+    };
+
+    const completeOrderProcess = (newOrder: TakeawayOrderData) => {
+      const updatedOrders = [newOrder, ...orderHistory];
+      setOrderHistory(updatedOrders);
+      try {
+        localStorage.setItem('29foods_orders', JSON.stringify(updatedOrders));
+      } catch {
+        // quiet fallback
+      }
+      setIsSuccess(true);
+      setIsProcessingPayment(false);
+    };
+
+    const handleCloseCallback = () => {
+      setIsProcessingPayment(false);
+      setErrors(prev => ({ ...prev, paystack: "Transaction was closed. Online payment is required to activate your takeaway woodfire ticket." }));
+    };
+
     try {
       if (!(window as any).PaystackPop) {
         throw new Error("Paystack secure payment gateway. Please check your internet connection and verify that 'js.paystack.co' script is permitted to load.");
       }
 
-      const handler = (window as any).PaystackPop.setup({
+      const paystackPopInstance = (window as any).PaystackPop;
+
+      const config: any = {
         key: paystackPublicKey,
         email: 'peterrichard013@gmail.com',
         amount: activePriceTotal * 100, // Paystack expects Kobo
@@ -213,51 +265,36 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
             }
           ]
         },
-        callback: async function(response: any) {
-          const newOrder: TakeawayOrderData = {
-            ...formData,
-            id: orderId,
-            customPlatters_v2: cart.length > 0 ? [...cart] : [platterConfig],
-            paymentStatus: 'success',
-            paymentReference: response.reference
-          };
-
-          try {
-            // POST the takeaway booking to our Node.js custom backend API (proxies to Telegram & Supabase)
-            const res = await fetch('/api/orders', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(newOrder),
-            });
-            if (res.ok) {
-              const bodyValue = await res.json();
-              if (bodyValue && bodyValue.order) {
-                // Use server-generated timestamp/id if available
-                newOrder.id = bodyValue.order.id;
-              }
-            }
-          } catch (err) {
-            console.warn("Fullstack API direct dispatch offline, using local standalone cache backup", err);
-          }
-
-          const updatedOrders = [newOrder, ...orderHistory];
-          setOrderHistory(updatedOrders);
-          try {
-            localStorage.setItem('29foods_orders', JSON.stringify(updatedOrders));
-          } catch {
-            // quiet fallback
-          }
-
-          setIsSuccess(true);
-          setIsProcessingPayment(false);
+        callback: function(response: any) {
+          handleSuccessCallback(response);
+        },
+        onSuccess: function(response: any) {
+          handleSuccessCallback(response);
         },
         onClose: function() {
-          setIsProcessingPayment(false);
-          setErrors(prev => ({ ...prev, paystack: "Transaction was closed. Online payment is required to activate your takeaway woodfire ticket." }));
+          handleCloseCallback();
+        },
+        onCancel: function() {
+          handleCloseCallback();
         }
-      });
+      };
 
-      handler.openIframe();
+      // Handle setup modes elegantly (PaystackPop setup method vs new transaction instance)
+      if (typeof paystackPopInstance.setup === 'function') {
+        const handler = paystackPopInstance.setup(config);
+        handler.openIframe();
+      } else {
+        const instance = new paystackPopInstance();
+        instance.newTransaction({
+          ...config,
+          onSuccess: function(response: any) {
+            handleSuccessCallback(response);
+          },
+          onCancel: function() {
+            handleCloseCallback();
+          }
+        });
+      }
     } catch (err: any) {
       console.error("Paystack popup instantiation error", err);
       setIsProcessingPayment(false);
@@ -588,20 +625,6 @@ export default function BookingSystem({ platterConfig, cart, setCart }: BookingS
                     placeholder="e.g. Pack pepper sauce in separate container, no onions"
                     className="w-full p-3 bg-white border border-zinc-200 rounded-xl text-xs font-mono focus:outline-none focus:border-[#FF7A00] resize-none"
                   />
-                </div>
-
-                {/* Paystack sandbox integration parameters */}
-                <div className="p-4 bg-zinc-100 rounded-2xl border border-zinc-200 text-[11px] font-mono text-zinc-650 leading-relaxed space-y-1.5">
-                  <span className="font-bold text-zinc-800 uppercase block text-[10px] text-[#D62828] flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-[#D62828] animate-pulse"></span>
-                    💳 PAYSTACK SANDBOX INTEGRATION METADATA:
-                  </span>
-                  <p>Configure these variables inside your <b>Paystack Dashboard Settings</b> under API Keys & Webhooks:</p>
-                  <div className="space-y-1 pl-2">
-                    <p>• <b>Test Callback URL:</b> <code className="bg-white px-1.5 py-0.5 rounded border text-[#D62828] select-all">https://29foods.vercel.app/</code></p>
-                    <p>• <b>Test Webhook URL:</b> <code className="bg-white px-1.5 py-0.5 rounded border text-[#D62828] select-all break-all">{(import.meta as any).env.VITE_APP_URL || window.location.origin}/api/paystack-webhook</code></p>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 mt-2">Use any Paystack test card credentials (usually just simulating any random expiry & CVV to get instant checkout confirmation).</p>
                 </div>
 
                 {errors.paystack && (
