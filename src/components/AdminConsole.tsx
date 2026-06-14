@@ -74,6 +74,7 @@ interface MenuItem {
   plainImage: string;
   dodoImage?: string;
   features: string[];
+  soldOut?: boolean;
 }
 
 interface Discount {
@@ -109,7 +110,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   
-  const [activeTab, setActiveTab] = useState<"dashboard" | "menu" | "orders" | "discounts" | "supabase" | "toppings">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "menu" | "orders" | "discounts" | "toppings">("dashboard");
   
   // Dynamic datasets
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -592,6 +593,26 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
     }
   };
 
+  const handleToggleSoldOut = async (item: MenuItem) => {
+    try {
+      const updatedItem = { ...item, soldOut: !item.soldOut };
+      const res = await fetch(getApiUrl(`/api/menu/${item.id}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedItem)
+      });
+      if (res.ok) {
+        setMenuItems(prev => prev.map(m => m.id === item.id ? updatedItem : m));
+        pushLog(`Dish '${item.name}' marked as ${updatedItem.soldOut ? "SOLD OUT" : "AVAILABLE"}.`);
+        if (onRefreshTrigger) onRefreshTrigger();
+      } else {
+        pushLog(`Failed to update sold out status for ${item.name}`);
+      }
+    } catch (err: any) {
+      pushLog(`Error toggling sold out: ${err.message}`);
+    }
+  };
+
   const handleSetImage = (path: string) => {
     setDishForm(prev => ({ ...prev, plainImage: path }));
   };
@@ -603,7 +624,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
   if (!isAdminMode) return null;
 
   return (
-    <div className="fixed inset-0 z-55 bg-neutral-950 text-neutral-100 flex flex-col font-sans select-text overflow-hidden">
+    <div className="fixed inset-0 z-55 bg-zinc-50 text-zinc-800 flex flex-col font-sans select-text overflow-hidden">
       
       {/* 1. LOGIN GATE SHEETS */}
       <AnimatePresence>
@@ -612,58 +633,58 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 bg-[#0d0d0d] flex items-center justify-center p-6 bg-[radial-gradient(circle_at_center,rgba(214,40,40,0.08),transparent_50%)]"
+            className="absolute inset-0 z-50 bg-zinc-100 flex items-center justify-center p-6 bg-[radial-gradient(circle_at_center,rgba(214,40,40,0.03),transparent_50%)]"
           >
-            <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-8 shadow-2xl space-y-8 relative">
+            <div className="w-full max-w-md bg-white border border-zinc-200 rounded-3xl p-8 shadow-2xl space-y-8 relative text-zinc-850">
               
               <div className="text-center space-y-3">
-                <div className="w-14 h-14 bg-neutral-950 rounded-2xl flex items-center justify-center border border-neutral-800 mx-auto">
-                  <Lock className="w-6 h-6 text-[#FF7A00] animate-pulse" />
+                <div className="w-14 h-14 bg-zinc-50 rounded-2xl flex items-center justify-center border border-zinc-150 mx-auto">
+                  <Lock className="w-6 h-6 text-[#FF7A00]" />
                 </div>
-                <h2 className="text-xl font-mono uppercase tracking-widest font-black text-white">
+                <h2 className="text-lg font-mono uppercase tracking-widest font-black text-zinc-900">
                   Hearth Staff Control Room
                 </h2>
-                <p className="text-xs text-neutral-400 font-sans max-w-xs mx-auto">
-                  Provide secure administrative pin security credentials to configure live takeaway bookings and recipe catalogs.
+                <p className="text-xs text-zinc-500 font-sans max-w-xs mx-auto">
+                  Provide administrative PIN credentials to access order dispatches and firewood recipe catalogs.
                 </p>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] font-mono text-neutral-500 uppercase tracking-wider font-bold">
-                    Administrative Key Pin
+                  <label className="block text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-bold">
+                    Administrative Access Code
                   </label>
                   <input
                     type="password"
                     placeholder="Enter Staff Password (e.g. admin)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full p-4 bg-neutral-950 border border-neutral-800 hover:border-neutral-700 focus:border-[#FF7A00] rounded-2xl text-white font-mono text-center text-sm focus:outline-none transition-colors tracking-widest"
+                    className="w-full p-4 bg-zinc-50 border border-zinc-200 hover:border-zinc-350 focus:border-[#FF7A00] rounded-2xl text-zinc-900 font-mono text-center text-sm focus:outline-none transition-colors tracking-widest"
                     autoFocus
                   />
-                  <p className="text-[10px] font-mono text-center text-neutral-500 italic mt-1">
-                    *Default PIN is <code className="text-[#FF7A00] bg-neutral-950 border px-1 rounded">admin</code> for assessment evaluation.*
+                  <p className="text-[10px] font-mono text-center text-zinc-500 italic mt-1">
+                    *Default access code is <code className="text-[#FF7A00] bg-zinc-50 border px-1 rounded">admin</code> for evaluation.*
                   </p>
                 </div>
 
                 {loginError && (
-                  <p className="text-xs font-mono text-red-500 text-center bg-red-500/5 p-3 rounded-xl border border-red-500/10">
+                  <p className="text-xs font-mono text-red-650 text-center bg-red-400/5 p-3 rounded-xl border border-red-500/10">
                     ⚠️ {loginError}
                   </p>
                 )}
 
                 <button
                   type="submit"
-                  className="w-full py-4 bg-[#FF7A00] hover:bg-[#D62828] text-white font-mono text-xs uppercase tracking-widest font-black rounded-2xl transition-all duration-300 shadow-lg cursor-pointer"
+                  className="w-full py-4 bg-[#FF7A00] hover:bg-[#D62828] text-white font-mono text-xs uppercase tracking-widest font-black rounded-2xl transition-all duration-300 shadow-md cursor-pointer"
                 >
-                  Verify Credentials & unlock
+                  Verify Credentials
                 </button>
               </form>
 
-              <div className="pt-4 border-t border-neutral-800 text-center">
+              <div className="pt-4 border-t border-zinc-200 text-center">
                 <button
                   onClick={onClose}
-                  className="text-[10px] font-mono text-neutral-400 hover:text-white uppercase tracking-wider"
+                  className="text-[10px] font-mono text-zinc-400 hover:text-zinc-800 uppercase tracking-wider cursor-pointer"
                 >
                   cancel and Return to Storefront
                 </button>
@@ -677,19 +698,19 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
       <div className="flex-1 flex overflow-hidden">
         
         {/* Left elegant workspace sidebar */}
-        <aside className="w-64 max-md:w-16 bg-neutral-900 border-r border-neutral-850 flex flex-col justify-between shrink-0 transition-all select-none">
+        <aside className="w-64 max-md:w-16 bg-white border-r border-zinc-200 flex flex-col justify-between shrink-0 transition-all select-none">
           <div>
             
             {/* Sidebar logo */}
-            <div className="p-6 max-md:p-3 border-b border-neutral-850 flex items-center gap-3">
+            <div className="p-6 max-md:p-3 border-b border-zinc-200 flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#D62828] to-[#FF7A00] flex items-center justify-center font-mono text-white text-xs font-black shrink-0">
                 29
               </div>
               <div className="max-md:hidden">
-                <h4 className="font-mono text-[10px] uppercase text-neutral-400 leading-none tracking-widest font-black">
+                <h4 className="font-mono text-[10px] uppercase text-zinc-400 leading-none tracking-widest font-black">
                   Control Room
                 </h4>
-                <p className="text-xs font-sans text-neutral-500 mt-1 leading-none font-semibold">
+                <p className="text-xs font-sans text-zinc-650 mt-1 leading-none font-semibold">
                   29foods Portal
                 </p>
               </div>
@@ -702,20 +723,20 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                 onClick={() => setActiveTab("dashboard")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                   activeTab === "dashboard"
-                    ? "bg-[#FF7A00]/10 text-white font-black border-l-4 border-[#FF7A00]"
-                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                    ? "bg-zinc-100 text-[#FF7A00] font-black border-l-4 border-[#FF7A00]"
+                    : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
                 }`}
               >
                 <TrendingUp className="w-4 h-4 text-[#FF7A00]" />
-                <span className="max-md:hidden">Telemetry Overview</span>
+                <span className="max-md:hidden">Dashboard Stats</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("menu")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                   activeTab === "menu"
-                    ? "bg-[#FF7A00]/10 text-white font-black border-l-4 border-[#FF7A00]"
-                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                    ? "bg-zinc-100 text-[#FF7A00] font-black border-l-4 border-[#FF7A00]"
+                    : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
                 }`}
               >
                 <Sliders className="w-4 h-4 text-emerald-500" />
@@ -726,8 +747,8 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                 onClick={() => setActiveTab("orders")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative ${
                   activeTab === "orders"
-                    ? "bg-[#FF7A00]/10 text-white font-black border-l-4 border-[#FF7A00]"
-                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                    ? "bg-zinc-100 text-[#FF7A00] font-black border-l-4 border-[#FF7A00]"
+                    : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
                 }`}
               >
                 <Award className="w-4 h-4 text-[#D62828]" />
@@ -741,87 +762,67 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                 onClick={() => setActiveTab("discounts")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                   activeTab === "discounts"
-                    ? "bg-[#FF7A00]/10 text-white font-black border-l-4 border-[#FF7A00]"
-                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                    ? "bg-zinc-100 text-[#FF7A00] font-black border-l-4 border-[#FF7A00]"
+                    : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
                 }`}
               >
-                <Sparkles className="w-4 h-4 text-sky-400" />
-                <span className="max-md:hidden">Promo Codes ({vouchers.length})</span>
+                <Sparkles className="w-4 h-4 text-sky-500" />
+                <span className="max-md:hidden">Promo &amp; Upsell ({vouchers.length})</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("toppings")}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                   activeTab === "toppings"
-                    ? "bg-[#FF7A00]/10 text-white font-black border-l-4 border-[#FF7A00]"
-                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                    ? "bg-zinc-100 text-[#FF7A00] font-black border-l-4 border-[#FF7A00]"
+                    : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
                 }`}
               >
                 <PlusCircle className="w-4 h-4 text-amber-500" />
-                <span className="max-md:hidden">Addons & Sides ({toppings.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("supabase")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                  activeTab === "supabase"
-                    ? "bg-[#FF7A00]/10 text-white font-black border-l-4 border-[#FF7A00]"
-                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
-                }`}
-              >
-                <Database className="w-4 h-4 text-purple-400" />
-                <span className="max-md:hidden">Supabase DB Hub</span>
+                <span className="max-md:hidden">Addons &amp; Sides ({toppings.length})</span>
               </button>
 
             </nav>
           </div>
 
           {/* Sidebar footers */}
-          <div className="p-4 border-t border-neutral-850">
+          <div className="p-4 border-t border-zinc-200">
             <button
-              onClick={onClose}
-              className="w-full flex items-center gap-3 px-4 py-3 text-neutral-400 hover:text-white hover:bg-neutral-850 rounded-xl transition-all font-mono text-xs cursor-pointer"
+               onClick={onClose}
+               className="w-full flex items-center gap-3 px-4 py-3 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-xl transition-all font-mono text-xs cursor-pointer"
             >
-              <LogOut className="w-4 h-4 text-neutral-400" />
+              <LogOut className="w-4 h-4 text-zinc-500" />
               <span className="max-md:hidden">Back To Storefront</span>
             </button>
           </div>
         </aside>
 
         {/* 3. WORKSPACE CORE VIEWPORT AREA */}
-        <main className="flex-1 flex flex-col bg-neutral-950 overflow-hidden">
+        <main className="flex-1 flex flex-col bg-zinc-50 overflow-hidden text-zinc-800">
           
           {/* Top minimal admin Header */}
-          <header className="h-16 border-b border-neutral-850 px-8 flex items-center justify-between bg-neutral-900/40 select-none">
+          <header className="h-16 border-b border-zinc-200 px-8 flex items-center justify-between bg-white select-none shrink-0">
             <div className="flex items-center gap-3">
-              <h1 className="text-sm font-mono uppercase tracking-widest font-black text-white">
-                {activeTab === "dashboard" && "Hearth Telemetry Analytics"}
-                {activeTab === "menu" && "Interactive Food Catalog"}
+              <h1 className="text-xs font-mono uppercase tracking-widest font-black text-zinc-700">
+                {activeTab === "dashboard" && "Hearth Activity Dashboard"}
+                {activeTab === "menu" && "Interactive Menu Catalog"}
                 {activeTab === "orders" && "Active Booking Dispatches"}
                 {activeTab === "discounts" && "Promo & Voucher Campaign"}
-                {activeTab === "supabase" && "Supabase Cloud Core Control"}
                 {activeTab === "toppings" && "Add-ons & Side Meals Manager"}
               </h1>
               {isRefreshing && (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-neutral-500" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-zinc-400" />
               )}
             </div>
 
             <div className="flex items-center gap-4">
               <button
                 onClick={syncAllData}
-                className="p-2.5 rounded-xl hover:bg-neutral-900 border border-neutral-850 text-neutral-400 hover:text-white transition-colors duration-200 text-xs flex items-center gap-1.5 font-mono font-bold cursor-pointer"
+                className="p-2.5 rounded-xl hover:bg-zinc-50 border border-zinc-200 text-zinc-600 hover:text-zinc-900 transition-colors duration-200 text-xs flex items-center gap-1.5 font-mono font-bold cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Refresh Sync</span>
+                <span>Refresh Console</span>
               </button>
-              
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-850 max-sm:hidden">
-                <span className={`w-2 h-2 rounded-full ${config.supabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                <span className="font-mono text-[9px] uppercase font-bold text-neutral-400">
-                  {config.supabaseConfigured ? 'SUPABASE ONLINE' : 'LOCAL FALLBACK'}
-                </span>
-              </div>
             </div>
           </header>
 
@@ -835,117 +836,43 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
               <div className="space-y-8 animate-fade-in">
                 
                 {/* Visual scorecard grids */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-mono">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-mono text-zinc-800">
                   
-                  <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 font-black opacity-10 text-6xl select-none">₦</div>
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Total Sales (Completed)</span>
-                    <h3 className="text-3xl font-black text-[#FF7A00] mt-2">₦{totalRevenue.toLocaleString()}</h3>
-                    <p className="text-[9px] text-neutral-500 font-sans mt-1">Summing completed order tickings</p>
+                  <div className="p-6 bg-white border border-zinc-200 rounded-2xl relative overflow-hidden shadow-sm group">
+                    <div className="absolute top-0 right-0 p-4 font-black opacity-5 text-6xl select-none text-zinc-900">₦</div>
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Total Sales (Completed)</span>
+                    <h3 className="text-2xl font-black text-[#FF7A00] mt-2">₦{totalRevenue.toLocaleString()}</h3>
+                    <p className="text-[9px] text-zinc-400 font-sans mt-1">Sum of completed order invoicing</p>
                   </div>
 
-                  <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl relative overflow-hidden">
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Takeaway Slips size</span>
-                    <h3 className="text-3xl font-black text-white mt-2">{orders.length} slips</h3>
-                    <p className="text-[9px] text-neutral-500 font-sans mt-1">Pending order queues: {orders.filter(o => o.status === 'pending').length}</p>
+                  <div className="p-6 bg-white border border-zinc-200 rounded-2xl relative overflow-hidden shadow-sm">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Takeaway Slips size</span>
+                    <h3 className="text-2xl font-black text-zinc-800 mt-2">{orders.length} slips</h3>
+                    <p className="text-[9px] text-zinc-400 font-sans mt-1">Pending queues: {orders.filter(o => o.status === 'pending').length}</p>
                   </div>
 
-                  <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl relative overflow-hidden">
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Heated Recipes listed</span>
-                    <h3 className="text-3xl font-black text-emerald-500 mt-2">{menuItems.length} live</h3>
-                    <p className="text-[9px] text-neutral-500 font-sans mt-1">Available West African dishes</p>
+                  <div className="p-6 bg-white border border-zinc-200 rounded-2xl relative overflow-hidden shadow-sm">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Heated Recipes listed</span>
+                    <h3 className="text-2xl font-black text-emerald-600 mt-2">{menuItems.length} live</h3>
+                    <p className="text-[9px] text-zinc-400 font-sans mt-1">Available West African dishes</p>
                   </div>
 
-                  <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl relative overflow-hidden">
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Active promo campaigns</span>
-                    <h3 className="text-3xl font-black text-sky-400 mt-2">{vouchers.length} codes</h3>
-                    <p className="text-[9px] text-neutral-500 font-sans mt-1">Valid voucher coupons loaded</p>
-                  </div>
-
-                </div>
-
-                {/* DB & telegram configuration diagnostics */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  
-                  <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-4">
-                    <h4 className="font-mono text-xs uppercase text-white font-black tracking-wider flex items-center gap-2">
-                      <Database className="w-4 h-4 text-purple-400" />
-                      Supabase PostgreSQL Link
-                    </h4>
-                    <p className="text-xs text-neutral-400 font-sans leading-relaxed">
-                      Your fullstack API can directly synchronize recipe catalogs and customer orders with your Supabase database. If unlinked, the application defaults elegantly to the high-performance local <code className="text-neutral-200">data_store.json</code> database block on the server container.
-                    </p>
-
-                    <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800 space-y-2 text-xs font-mono">
-                      <div className="flex justify-between">
-                        <span className="text-neutral-500">Integration Status:</span>
-                        <span className={config.supabaseConfigured ? "text-emerald-500 font-bold" : "text-amber-500"}>
-                          {config.supabaseConfigured ? "● CONNECTED (POSTGREST)" : "● LOCAL SYSTEM MOCK"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between pt-1.5 border-t border-neutral-900">
-                        <span className="text-neutral-500">Seeded Database State:</span>
-                        <span>{menuItems.length > 0 ? "Normal populated" : "Empty (Action required)"}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => setActiveTab("supabase")}
-                      className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white rounded-lg font-mono text-[10px] uppercase font-bold tracking-wider"
-                    >
-                      Diagnose & Seed core tables
-                    </button>
-                  </div>
-
-                  <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-4">
-                    <h4 className="font-mono text-xs uppercase text-white font-black tracking-wider flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-[#FF7A00]" />
-                      Telegram Live Dispatcher Bot
-                    </h4>
-                    <p className="text-xs text-neutral-400 font-sans leading-relaxed">
-                      New takeaway platter orders placed on the website are automatically compiled and delivered as highly structured messages straight to your Telegram account!
-                    </p>
-
-                    <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800 space-y-2 text-xs font-mono">
-                      <div className="flex justify-between">
-                        <span className="text-neutral-500">Telegram Bot token:</span>
-                        <span>{config.telegramConfigured ? "Configured ✔" : "Offline"}</span>
-                      </div>
-                      {config.telegramAdminChatID && (
-                        <div className="flex justify-between">
-                          <span className="text-neutral-500">Target Chat ID:</span>
-                          <span className="text-neutral-300">`{config.telegramAdminChatID}`</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {config.telegramConfigured && (
-                      <div className="pt-2">
-                        <button
-                          onClick={handleTriggerTelegramAlert}
-                          className="px-4 py-2 bg-[#D62828] hover:bg-[#FF7A00] text-white rounded-lg font-mono text-[10px] uppercase font-bold tracking-wider float-left flex items-center gap-1.5"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          Send Test Alarm
-                        </button>
-                        {testResult && (
-                          <span className="text-[10px] font-mono text-neutral-300 ml-4 inline-block mt-2.5">{testResult}</span>
-                        )}
-                        <div className="clear-both" />
-                      </div>
-                    )}
+                  <div className="p-6 bg-white border border-zinc-200 rounded-2xl relative overflow-hidden shadow-sm">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Active promo campaigns</span>
+                    <h3 className="text-2xl font-black text-sky-600 mt-2">{vouchers.length} codes</h3>
+                    <p className="text-[9px] text-zinc-400 font-sans mt-1">Valid voucher coupons loaded</p>
                   </div>
 
                 </div>
 
                 {/* Console debug logger */}
-                <div className="space-y-2">
-                  <span className="font-mono text-[9px] text-neutral-500 uppercase font-bold block tracking-widest">
-                    Staff telemetry activity pipeline
+                <div className="space-y-2 mt-8">
+                  <span className="font-mono text-[9px] text-zinc-400 uppercase font-bold block tracking-widest">
+                    Staff activity &amp; audit log
                   </span>
-                  <div className="bg-neutral-950 border border-neutral-850 rounded-2xl p-6 font-mono text-[10.5px] text-neutral-400 space-y-2 h-48 overflow-y-auto leading-normal select-text">
+                  <div className="bg-[#18181b] border border-zinc-250 rounded-2xl p-6 font-mono text-[10.5px] text-zinc-300 space-y-2 h-64 overflow-y-auto leading-normal select-text">
                     {logs.map((log, i) => (
-                      <div key={i} className="border-b border-neutral-900 pb-1.5 last:border-none">
+                      <div key={i} className="border-b border-zinc-800/50 pb-1.5 last:border-none">
                         {log}
                       </div>
                     ))}
@@ -959,16 +886,16 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
             {/* TAB B: MENU CRUD WORKSPACE */}
             {/* ------------------------------------------------------------- */}
             {activeTab === "menu" && (
-              <div className="space-y-8 animate-fade-in">
+              <div className="space-y-8 animate-fade-in text-zinc-800">
                 
                 <div className="flex justify-between items-center max-sm:flex-col max-sm:items-stretch gap-4">
                   <div>
-                    <h3 className="font-mono text-xs uppercase text-neutral-400 font-bold">Listed Takeaway Platter Recipes</h3>
-                    <p className="text-xs text-neutral-500 font-sans mt-0.5">Create, update or remove items on the customer interactive platter visualizer</p>
+                    <h3 className="font-mono text-xs uppercase text-zinc-500 font-bold tracking-wider">Kitchen Recipe Catalog</h3>
+                    <p className="text-xs text-zinc-500 font-sans mt-0.5">Configure, update, or toggle available status of items on the customer interactive storefront menu.</p>
                   </div>
                   <button
                     onClick={() => openEditDishModal(null)}
-                    className="px-5 py-3.5 bg-[#FF7A00] hover:bg-[#D62828] text-white font-mono text-xs uppercase font-black tracking-wider rounded-2xl flex items-center justify-center gap-1.5 transition-colors duration-200 shadow-md cursor-pointer"
+                    className="px-5 py-3.5 bg-[#FF7A00] hover:bg-[#D62828] text-white font-mono text-xs uppercase font-black tracking-wider rounded-2xl flex items-center justify-center gap-1.5 transition-colors duration-200 shadow-sm cursor-pointer"
                   >
                     <PlusCircle className="w-4 h-4" />
                     + Create custom Dish
@@ -976,24 +903,18 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                 </div>
 
                 {menuItems.length === 0 ? (
-                  <div className="p-16 text-center border border-neutral-850 rounded-3xl bg-neutral-900/10 hover:bg-neutral-900/30 text-neutral-500 font-sans space-y-4">
-                    <p>No firewood recipe dishes found. You can populate database items now!</p>
-                    <button
-                      onClick={() => setActiveTab("supabase")}
-                      className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg font-mono text-[10px] uppercase font-bold"
-                    >
-                      Load Initial Catalog Seeding
-                    </button>
+                  <div className="p-16 text-center border border-zinc-200 rounded-3xl bg-white text-zinc-500 font-sans space-y-4 shadow-sm">
+                    <p>No firewood recipe dishes found. You can populate items inside database now!</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {menuItems.map((item) => (
                       <div 
                         key={item.id} 
-                        className="bg-neutral-900 border border-neutral-850 rounded-2xl overflow-hidden shadow-md flex flex-col justify-between"
+                        className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md flex flex-col justify-between transition-all duration-300"
                       >
                         {/* image area */}
-                        <div className="h-44 w-full bg-neutral-950 relative overflow-hidden group">
+                        <div className="h-44 w-full bg-zinc-100 relative overflow-hidden group">
                           {item.plainImage ? (
                             <img
                               src={item.plainImage}
@@ -1005,52 +926,61 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                               }}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-neutral-950 text-neutral-600 text-xs font-mono">
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-400 text-xs font-mono">
                               No visual photo preview
                             </div>
                           )}
-                          <div className="absolute top-3 left-3 px-2 py-1 rounded bg-neutral-950/80 border border-neutral-800 font-mono text-[9px] uppercase font-bold text-[#FF7A00]">
+                          <div className="absolute top-3 left-3 px-2 py-1 rounded-lg bg-white/95 border border-zinc-200 font-mono text-[9px] uppercase font-bold text-[#FF7A00] shadow-sm select-none">
                             {item.category.replace(/_/g, " ")}
                           </div>
                           
-                          <div className="absolute top-3 right-3 px-2 py-1 rounded bg-neutral-950/80 border border-neutral-800 font-mono text-[9px] font-black text-rose-500">
+                          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-[#FF7A00] font-mono text-[9.5px] font-black text-white shadow-sm select-none">
                             ₦{item.basePrice.toLocaleString()}
                           </div>
                         </div>
 
                         {/* description area */}
-                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4 font-mono">
+                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                           <div className="space-y-2">
-                            <h4 className="text-sm font-black text-white leading-normal line-clamp-1">
+                            <h4 className="text-sm font-bold text-zinc-950 leading-normal line-clamp-1">
                               {item.name}
                             </h4>
-                            <p className="text-[11px] text-neutral-400 font-sans leading-normal line-clamp-2">
+                            <p className="text-[11px] text-zinc-500 font-sans leading-normal line-clamp-2">
                               {item.description}
                             </p>
                             
-                            <div className="flex flex-wrap gap-1 pt-1 text-[8.5px] uppercase font-extrabold text-[#FF7A00]">
+                            <div className="flex flex-wrap gap-1 pt-1 text-[9.5px] uppercase font-extrabold text-[#FF7A00]">
                               <span>⚖️ {item.calories || '600 kcal'}</span>
-                              <span className="text-rose-500"> | 🌶️ {item.spicyLevel ?? 1} rating</span>
+                              <span className="text-rose-600"> | 🌶️ {item.spicyLevel ?? 1} rating</span>
                             </div>
                           </div>
 
                           {/* actions */}
-                          <div className="pt-4 border-t border-neutral-850/50 flex items-center justify-between gap-4">
-                            <span className="text-[9px] font-sans text-neutral-500 truncate block">
-                              ID: <code>{item.id}</code>
-                            </span>
+                          <div className="pt-4 border-t border-zinc-150 flex items-center justify-between gap-4">
+                            <button
+                              onClick={() => handleToggleSoldOut(item)}
+                              className={`px-3 py-1.5 font-sans font-extrabold text-[10px] rounded-lg border transition-all cursor-pointer uppercase flex items-center gap-1.5 ${
+                                item.soldOut
+                                  ? "bg-red-50 text-red-650 border-red-100 hover:bg-red-100/80"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100/80"
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${item.soldOut ? "bg-red-500 animate-pulse" : "bg-emerald-500 animate-pulse"}`} />
+                              {item.soldOut ? "Sold Out" : "In Stock"}
+                            </button>
+
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => openEditDishModal(item)}
-                                className="p-2 bg-neutral-800 hover:bg-[#FF7A00] text-neutral-300 hover:text-white rounded-lg transition-colors cursor-pointer"
-                                title="Edit Dish properties or Change cover image"
+                                className="p-2 hover:bg-orange-50 text-zinc-650 hover:text-[#FF7A00] hover:border-orange-200 border border-transparent rounded-lg transition-all cursor-pointer"
+                                title="Edit properties"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteDish(item.id)}
-                                className="p-2 bg-neutral-850 hover:bg-rose-500/10 text-neutral-500 hover:text-rose-500 border border-transparent hover:border-rose-500/20 rounded-lg transition-colors cursor-pointer"
-                                title="Discard Recipe item"
+                                className="p-2 hover:bg-rose-50 text-zinc-650 hover:text-rose-600 hover:border-rose-200 border border-transparent rounded-lg transition-all cursor-pointer"
+                                title="Delete Recipe"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1071,17 +1001,17 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
             {/* TAB C: TAKEAWAY BOOKINGS slips */}
             {/* ------------------------------------------------------------- */}
             {activeTab === "orders" && (
-              <div className="space-y-8 animate-fade-in">
+              <div className="space-y-8 animate-fade-in text-zinc-800">
                 
                 <div className="flex justify-between items-center max-sm:flex-col max-sm:items-stretch gap-4">
                   <div>
-                    <h3 className="font-mono text-xs uppercase text-neutral-400 font-bold">Active Takeaway Platter Orders Queue</h3>
-                    <p className="text-xs text-neutral-500 font-sans mt-0.5">Toggle fulfillment pipelines or handle live dispatch tickets real-time</p>
+                    <h3 className="font-mono text-xs uppercase text-zinc-500 font-bold tracking-wider">Active Takeaway Platter Orders Queue</h3>
+                    <p className="text-xs text-zinc-500 font-sans mt-0.5">Toggle fulfillment pipelines or handle live dispatch tickets real-time.</p>
                   </div>
                 </div>
 
                 {orders.length === 0 ? (
-                  <div className="p-16 text-center border border-neutral-850 rounded-3xl bg-neutral-900/15 text-neutral-500 font-sans">
+                  <div className="p-16 text-center border border-zinc-200 rounded-3xl bg-white text-zinc-500 font-sans shadow-sm">
                     No takeaway order tickings recorded in books. Playplace normal orders on checkout!
                   </div>
                 ) : (
@@ -1089,67 +1019,67 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                     {orders.map((or) => (
                       <div 
                         key={or.id} 
-                        className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-4 shadow-sm"
+                        className="p-6 bg-white border border-zinc-200 rounded-3xl space-y-4 shadow-sm hover:shadow-md transition-all duration-300"
                       >
                         {/* upper row */}
-                        <div className="flex flex-wrap justify-between items-start gap-4 pb-4 border-b border-neutral-850 font-mono">
+                        <div className="flex flex-wrap justify-between items-center gap-4 pb-4 border-b border-zinc-150 font-sans">
                           <div>
-                            <span className="text-[10px] text-neutral-500 block uppercase font-bold tracking-wider">Ticket Code Slip</span>
-                            <h4 className="text-sm font-black text-white flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-zinc-400 uppercase font-black tracking-wider block">Ticket Code Slip</span>
+                            <h4 className="text-sm font-bold text-zinc-900 flex items-center gap-2 mt-0.5">
                               <span>🎟️ ID:</span>
-                              <span className="text-emerald-500 font-sans">{or.id}</span>
+                              <span className="text-[#FF7A00] font-mono font-black">{or.id}</span>
                             </h4>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2.5">
-                            <span className="text-[9.5px] uppercase tracking-wider text-neutral-400 font-bold">Manage State:</span>
-                            <div className="flex gap-1 bg-neutral-950 p-1 rounded-xl border border-neutral-850">
+                            <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">State Selector:</span>
+                            <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200 select-none">
                               <button
                                 onClick={() => updateOrderStatus(or.id, "pending")}
-                                className={`px-2.5 py-1.5 font-mono text-[9px] uppercase font-black rounded ${or.status === 'pending' ? 'bg-purple-500 text-white' : 'text-neutral-500'}`}
+                                className={`px-2.5 py-1.5 font-mono text-[9px] uppercase font-black rounded ${or.status === 'pending' ? 'bg-purple-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-800'}`}
                               >
                                 Pending
                               </button>
                               <button
                                 onClick={() => updateOrderStatus(or.id, "processing")}
-                                className={`px-2.5 py-1.5 font-mono text-[9px] uppercase font-black rounded ${or.status === 'processing' ? 'bg-orange-500 text-white' : 'text-neutral-500'}`}
+                                className={`px-2.5 py-1.5 font-mono text-[9px] uppercase font-black rounded ${or.status === 'processing' ? 'bg-amber-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-800'}`}
                               >
                                 Process
                               </button>
                               <button
                                 onClick={() => updateOrderStatus(or.id, "dispatched")}
-                                className={`px-2.5 py-1.5 font-mono text-[9px] uppercase font-black rounded ${or.status === 'dispatched' ? 'bg-blue-500 text-white' : 'text-neutral-500'}`}
+                                className={`px-2.5 py-1.5 font-mono text-[9px] uppercase font-black rounded ${or.status === 'dispatched' ? 'bg-sky-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-800'}`}
                               >
                                 Dispatch
                               </button>
                               <button
                                 onClick={() => updateOrderStatus(or.id, "completed")}
-                                className={`px-2.5 py-1.5 font-mono text-[9px] uppercase font-black rounded ${or.status === 'completed' ? 'bg-emerald-500 text-white' : 'text-neutral-500'}`}
+                                className={`px-2.5 py-1.5 font-mono text-[9px] uppercase font-black rounded ${or.status === 'completed' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-800'}`}
                               >
-                                Clean Done
+                                Done
                               </button>
                             </div>
                           </div>
                         </div>
 
                         {/* order contents */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-zinc-800">
                           
-                          <div className="p-4 bg-neutral-950/60 rounded-xl space-y-2 border border-neutral-850">
+                          <div className="p-4 bg-zinc-50/70 rounded-2xl space-y-2 border border-zinc-150">
                             <p className="text-[#FF7A00] font-black text-[10px] uppercase tracking-wider">👤 Patron Contact details</p>
-                            <p className="text-neutral-300">Name Tag: <span className="text-white font-sans font-bold">{or.name}</span></p>
-                            <p className="text-neutral-300">Phone core: <span className="text-white font-sans">{or.phone}</span></p>
-                            <p className="text-neutral-300">Target ETA: <span className="text-[#FF7A00]">{or.time}</span></p>
-                            <p className="text-neutral-300">Mode select: <span className="uppercase text-amber-500">{or.method}</span></p>
+                            <p className="text-zinc-600">Name Tag: <span className="text-zinc-900 font-semibold">{or.name}</span></p>
+                            <p className="text-zinc-600">Phone: <span className="text-zinc-900 font-sans font-medium">{or.phone}</span></p>
+                            <p className="text-zinc-600">Target ETA: <span className="text-orange-600 font-bold">{or.time}</span></p>
+                            <p className="text-zinc-600">Mode: <span className="uppercase text-amber-650 font-bold">{or.method}</span></p>
                             {or.address && (
-                              <p className="text-neutral-300">Street Map: <span className="text-rose-500 leading-normal block pt-1 font-sans">{or.address}</span></p>
+                              <p className="text-zinc-600">Street Map: <span className="text-zinc-800 leading-normal block pt-1">{or.address}</span></p>
                             )}
                           </div>
 
-                          <div className="p-4 bg-neutral-950/60 rounded-xl space-y-2 border border-neutral-850">
+                          <div className="p-4 bg-zinc-50/70 rounded-2xl space-y-2 border border-zinc-150">
                             <p className="text-[#FF7A00] font-black text-[10px] uppercase tracking-wider">🍲 Firewood Platter specification</p>
                             {or.dietaryNotes && (
-                              <p className="text-rose-500 italic text-[11px] bg-rose-500/5 p-2 rounded border border-rose-500/10 mb-2">
+                              <p className="text-rose-600 italic text-[11px] bg-rose-50 p-2 rounded border border-rose-100 mb-2">
                                 💬 <i>"Kitchen Notes: {or.dietaryNotes}"</i>
                               </p>
                             )}
@@ -1159,7 +1089,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                               const platters = or.customPlatters_v2 || or.customPlatterns_v2 || [];
                               if (platters.length > 0) {
                                 return (
-                                  <div className="space-y-2 divide-y divide-neutral-900">
+                                  <div className="space-y-2 divide-y divide-zinc-200">
                                     {platters.map((plat, idx) => {
                                       const dish = menuItems.find(m => m.id === plat.dishId) || { name: plat.dishId };
                                       const mappedToppingNames = (plat.selectedToppingIds || []).map(tid => {
@@ -1170,18 +1100,18 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                                       });
                                       return (
                                         <div key={idx} className="pt-2 first:pt-0 pb-2">
-                                          <p className="font-bold text-white flex justify-between items-center">
+                                          <p className="font-bold text-zinc-900 flex justify-between items-center">
                                             <span>● {dish.name}</span>
-                                            <span className="text-[#FF7A00] font-mono text-xs font-bold bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">x{plat.quantity}</span>
+                                            <span className="text-[#FF7A00] font-mono text-xs font-bold bg-white px-2 py-0.5 rounded-lg border border-zinc-200 shadow-3xs">x{plat.quantity}</span>
                                           </p>
                                           {plat.ownerName && (
-                                            <p className="text-emerald-400 font-sans text-[11px] font-semibold pl-3 mt-1.5 flex items-center gap-1.5">
-                                              <span>👤 Pack for:</span> <span className="bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2.5 py-0.5 rounded text-[10px] font-mono uppercase font-bold">{plat.ownerName}</span>
+                                            <p className="text-emerald-700 font-sans text-[11px] font-semibold pl-3 mt-1.5 flex items-center gap-1.5">
+                                              <span>👤 Pack for:</span> <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-0.5 rounded text-[10px] font-mono uppercase font-bold">{plat.ownerName}</span>
                                             </p>
                                           )}
-                                          {plat.hasPlantain && <p className="text-zinc-400 text-[10px] pl-3 mt-1 flex items-center gap-1"><span>🍌</span> Includes Fried Plantain (Dodo)</p>}
+                                          {plat.hasPlantain && <p className="text-zinc-500 text-[10px] pl-3 mt-1 flex items-center gap-1"><span>🍌</span> Includes Fried Plantain (Dodo)</p>}
                                           {mappedToppingNames.length > 0 && (
-                                            <p className="text-zinc-400 text-[10px] pl-3 mt-1 flex items-center gap-1"><span>➕</span> Sides/Add-ons: <span className="text-zinc-300 font-medium">{mappedToppingNames.join(", ")}</span></p>
+                                            <p className="text-zinc-500 text-[10px] pl-3 mt-1 flex items-center gap-1"><span>➕</span> Sides/Add-ons: <span className="text-zinc-800 font-medium">{mappedToppingNames.join(", ")}</span></p>
                                           )}
                                         </div>
                                       );
@@ -1189,7 +1119,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                                   </div>
                                 );
                               } else {
-                                return <p className="text-neutral-400 font-sans text-xs">Custom firewood top-down chef assembly platter selection</p>;
+                                return <p className="text-zinc-500 font-sans text-xs">Custom firewood top-down chef assembly platter selection</p>;
                               }
                             })()}
                           </div>
@@ -1197,9 +1127,9 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                         </div>
 
                         {/* invoices */}
-                        <div className="flex justify-between items-center font-mono text-xs pt-2">
-                          <span className="text-neutral-500">Record Created: {or.createdAt ? new Date(or.createdAt).toLocaleString() : 'Today'}</span>
-                          <span className="font-black text-rose-500 text-sm">
+                        <div className="flex justify-between items-center font-mono text-[11px] pt-2 text-zinc-400">
+                          <span>Record Created: {or.createdAt ? new Date(or.createdAt).toLocaleString() : 'Today'}</span>
+                          <span className="font-extrabold text-rose-600 text-sm">
                             ₦{or.totalPrice.toLocaleString()} Invoice total
                           </span>
                         </div>
@@ -1216,29 +1146,29 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
             {/* TAB D: PROMO discount codes */}
             {/* ------------------------------------------------------------- */}
             {activeTab === "discounts" && (
-              <div className="space-y-8 animate-fade-in font-mono">
+              <div className="space-y-8 animate-fade-in text-zinc-800">
                 
-                <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-6">
+                <div className="p-6 bg-white border border-zinc-200 rounded-3xl space-y-6 shadow-sm">
                   <div>
-                    <h3 className="text-xs uppercase text-neutral-300 font-bold">Deploy New promotional Discount code</h3>
-                    <p className="text-xs text-neutral-500 font-sans mt-0.5">Voucher offers created here can be typed in checkout boxes immediately</p>
+                    <h3 className="text-xs uppercase text-zinc-500 font-bold tracking-wider">Deploy New promotional Discount code</h3>
+                    <p className="text-xs text-zinc-500 font-sans mt-0.5">Voucher offers created here can be typed in checkout boxes immediately.</p>
                   </div>
 
                   <form onSubmit={handleAddVoucher} className="flex flex-wrap gap-4 items-end text-xs">
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Promotion Code Name</label>
+                      <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Promotion Code Name</label>
                       <input
                         type="text"
                         placeholder="e.g. SLAYER29"
                         required
                         value={newVoucherCode}
                         onChange={(e) => setNewVoucherCode(e.target.value)}
-                        className="p-3 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white uppercase focus:outline-none"
+                        className="p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 uppercase focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                       />
                     </div>
                     
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Percentage Off (%)</label>
+                      <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Percentage Off (%)</label>
                       <input
                         type="number"
                         min={1}
@@ -1246,41 +1176,41 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                         required
                         value={newVoucherPercentage}
                         onChange={(e) => setNewVoucherPercentage(Number(e.target.value))}
-                        className="p-3 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none w-28"
+                        className="p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none focus:ring-1 focus:ring-[#FF7A00] w-28"
                       />
                     </div>
 
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-[#FF7A00] hover:bg-[#D62828] text-white font-black uppercase rounded-xl transition-all tracking-wider cursor-pointer"
+                      className="px-6 py-3 bg-[#FF7A00] hover:bg-[#D62828] text-white font-extrabold uppercase rounded-xl transition-all tracking-wider cursor-pointer shadow-xs"
                     >
                       Sync Active Code
                     </button>
                   </form>
 
                   {couponActionMsg && (
-                    <p className="text-[10px] text-sky-400">{couponActionMsg}</p>
+                    <p className="text-[10px] text-sky-600 font-mono">{couponActionMsg}</p>
                   )}
                 </div>
 
                 {/* discount codes table */}
                 <div className="space-y-3">
-                  <span className="text-[10px] uppercase text-neutral-400 font-bold block tracking-wider font-mono">Voucher codes currently online</span>
+                  <span className="text-[10px] uppercase text-zinc-400 font-bold block tracking-wider font-mono">Voucher codes currently online</span>
                   <div className="space-y-2">
                     {vouchers.map((v) => (
                       <div 
                         key={v.code} 
-                        className="p-4 bg-neutral-900 border border-neutral-850 rounded-xl flex items-center justify-between text-xs"
+                        className="p-4 bg-white border border-zinc-200 rounded-2xl flex items-center justify-between text-xs shadow-sm"
                       >
                         <div className="flex items-center gap-4">
-                          <span className="font-extrabold text-white text-sm tracking-widest">{v.code}</span>
-                          <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-bold">
+                          <span className="font-extrabold text-zinc-900 text-sm tracking-widest uppercase">{v.code}</span>
+                          <span className="px-2.5 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 text-[10px] font-bold">
                             {v.percentage}% reduction
                           </span>
                         </div>
                         <button
                           onClick={() => handleDeleteVoucher(v.code)}
-                          className="p-2 bg-neutral-850 hover:bg-rose-500/10 text-neutral-500 hover:text-rose-500 rounded-lg transition-all cursor-pointer"
+                          className="p-2 hover:bg-rose-50 text-zinc-400 hover:text-rose-600 hover:border-rose-250 border border-transparent rounded-lg transition-all cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1290,63 +1220,63 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                 </div>
 
                 {/* DYNAMIC MARKETING CAMPAIGNS UI */}
-                <hr className="border-neutral-850" />
+                <hr className="border-zinc-200" />
 
-                <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-6">
+                <div className="p-6 bg-white border border-zinc-200 rounded-3xl space-y-6 shadow-sm">
                   <div>
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-[#FF7A00]" />
-                      <h3 className="text-xs uppercase text-neutral-300 font-bold tracking-wider">Configure Dynamic Upselling Campaign</h3>
+                      <h3 className="text-xs uppercase text-zinc-650 font-bold tracking-wider">Configure Dynamic Upselling Campaign</h3>
                     </div>
-                    <p className="text-xs text-neutral-500 font-sans mt-0.5">Deploy automated spend-rewards, friend combos, free delivery and side-portions to motivate high basket value in checkout panels.</p>
+                    <p className="text-xs text-zinc-500 font-sans mt-0.5">Deploy automated spend-rewards, friend combos, free delivery and side-portions to motivate high basket value in checkout panels.</p>
                   </div>
 
                   <form onSubmit={handleAddCampaign} className="space-y-4 text-xs font-mono">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Campaign ID / Key</label>
+                        <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Campaign ID / Key</label>
                         <input
                           type="text"
                           placeholder="e.g. free_delivery_15"
                           required
                           value={newCampaign.id}
                           onChange={(e) => setNewCampaign({ ...newCampaign, id: e.target.value })}
-                          className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                          className="w-full p-2.5 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-805 focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                         />
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Campaign Direct Headline / Title</label>
+                        <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Campaign Direct Headline / Title</label>
                         <input
                           type="text"
                           placeholder="e.g. Free Delivery Masterclass"
                           required
                           value={newCampaign.title}
                           onChange={(e) => setNewCampaign({ ...newCampaign, title: e.target.value })}
-                          className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                          className="w-full p-2.5 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-805 focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Customer-Facing Description Pitch</label>
+                      <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Customer-Facing Description Pitch</label>
                       <input
                         type="text"
                         placeholder="e.g. Spend ₦15,000 or above on food to unlock absolute free delivery!"
                         required
                         value={newCampaign.description}
                         onChange={(e) => setNewCampaign({ ...newCampaign, description: e.target.value })}
-                        className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                        className="w-full p-2.5 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-805 focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-1.5">
-                        <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Reward Campaign Strategy</label>
+                        <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Reward Campaign Strategy</label>
                         <select
                           value={newCampaign.type}
                           onChange={(e: any) => setNewCampaign({ ...newCampaign, type: e.target.value })}
-                          className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                          className="w-full p-2.5 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-805 focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                         >
                           <option value="free_shipping">Free Delivery (Spend threshold)</option>
                           <option value="free_topping">Free Topping/Side Meal (Spend threshold)</option>
@@ -1357,45 +1287,45 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
 
                       {(newCampaign.type === "free_shipping" || newCampaign.type === "free_topping") && (
                         <div className="space-y-1.5">
-                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Required Minimum Food Bill (₦)</label>
+                          <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Required Minimum Food Bill (₦)</label>
                           <input
                             type="number"
                             required
                             min={0}
                             value={newCampaign.minAmount}
                             onChange={(e) => setNewCampaign({ ...newCampaign, minAmount: Math.max(0, Number(e.target.value)) })}
-                            className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                            className="w-full p-2.5 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-805 focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                           />
                         </div>
                       )}
 
                       {newCampaign.type === "friend_offer" && (
                         <div className="space-y-1.5">
-                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Required Platter Quantity</label>
+                          <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Required Platter Quantity</label>
                           <input
                             type="number"
                             required
                             min={1}
                             value={newCampaign.requiredQty}
                             onChange={(e) => setNewCampaign({ ...newCampaign, requiredQty: Math.max(1, Number(e.target.value)) })}
-                            className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                            className="w-full p-2.5 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-805 focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                           />
                         </div>
                       )}
 
                       {newCampaign.type !== "free_shipping" && (
                         <div className="space-y-1.5">
-                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Select Awarded Free Gift / Side</label>
+                          <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Select Awarded Free Gift / Side</label>
                           <select
                             value={newCampaign.targetToppingId}
                             onChange={(e) => setNewCampaign({ ...newCampaign, targetToppingId: e.target.value })}
-                            className="w-full p-2.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                            className="w-full p-2.5 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-805 focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                           >
                             <option value="">-- No free topping --</option>
                             {toppings.map((t) => (
                               <option key={t.id} value={t.id}>{t.emoji || '🍿'} {t.name} (₦{t.price})</option>
                             ))}
-                            <option value="water">🥤 Bottle of Spring Water & Multi-pack</option>
+                            <option value="water">🥤 Bottle of Spring Water &amp; Multi-pack</option>
                           </select>
                         </div>
                       )}
@@ -1408,58 +1338,58 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                           id="camp_active"
                           checked={newCampaign.active}
                           onChange={(e) => setNewCampaign({ ...newCampaign, active: e.target.checked })}
-                          className="w-4 h-4 text-[#FF7A00] focus:ring-[#FF7A00] bg-neutral-950 border-neutral-800 rounded cursor-pointer"
+                          className="w-4 h-4 text-[#FF7A00] focus:ring-[#FF7A00] bg-white border-zinc-300 rounded cursor-pointer"
                         />
-                        <label htmlFor="camp_active" className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider cursor-pointer">Activate Campaign Immediately</label>
+                        <label htmlFor="camp_active" className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider cursor-pointer">Activate Campaign Immediately</label>
                       </div>
 
                       <button
                         type="submit"
-                        className="px-6 py-2.5 bg-orange-600 hover:bg-[#FF7A00] text-white font-black uppercase rounded-xl transition-all tracking-wider cursor-pointer font-sans"
+                        className="px-6 py-2.5 bg-[#FF7A00] hover:bg-[#D62828] text-white font-extrabold uppercase rounded-2xl transition-all tracking-wider cursor-pointer font-sans shadow-sm"
                       >
                         Deploy Marketing Campaign
                       </button>
                     </div>
 
                     {campaignActionMsg && (
-                      <p className="text-[10px] text-emerald-400 mt-2">{campaignActionMsg}</p>
+                      <p className="text-[10px] text-emerald-600 mt-2 font-mono font-bold">{campaignActionMsg}</p>
                     )}
                   </form>
                 </div>
 
                 {/* CURRENT ACTIVE CAMPAIGNS LEDGER */}
-                <div className="space-y-3">
-                  <span className="text-[10px] uppercase text-neutral-400 font-bold block tracking-wider font-mono">Live Campaign Promotions Ledger</span>
+                <div className="space-y-3 pb-8">
+                  <span className="text-[10px] uppercase text-zinc-400 font-bold block tracking-wider font-mono">Live Campaign Promotions Ledger</span>
                   <div className="space-y-2">
                     {campaigns.length === 0 ? (
-                      <div className="p-4 bg-neutral-950 border border-neutral-850 rounded-xl text-xs text-neutral-500 text-center font-sans">
+                      <div className="p-4 bg-white border border-zinc-200 rounded-2xl text-xs text-zinc-500 text-center font-sans shadow-sm">
                         No upselling campaigns currently set. Standard rates apply.
                       </div>
                     ) : (
                       campaigns.map((camp) => (
                         <div 
                           key={camp.id} 
-                          className={`p-4 bg-neutral-900 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs ${
-                            camp.active ? 'border-neutral-800' : 'border-neutral-850 opacity-60'
+                          className={`p-4 bg-white border rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs shadow-sm ${
+                            camp.active ? 'border-zinc-200' : 'border-zinc-200/50 opacity-60 bg-zinc-50/50'
                           }`}
                         >
                           <div className="space-y-1 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-extrabold text-white text-sm tracking-tight">{camp.title}</span>
-                              <span className="text-[9px] px-2 py-0.5 rounded uppercase font-bold bg-zinc-800 border border-zinc-750 text-orange-400">
+                              <span className="font-bold text-zinc-900 text-sm tracking-tight">{camp.title}</span>
+                              <span className="text-[9px] px-2 py-0.5 rounded-lg uppercase font-bold bg-zinc-50 border border-zinc-250 text-orange-600 font-mono">
                                 {camp.type === 'free_shipping' && '🚚 Free Shipping'}
                                 {camp.type === 'free_topping' && '🥩 Portion of Meat Spend Promo'}
                                 {camp.type === 'friend_offer' && '👥 Dining with Friend Bonus'}
                                 {camp.type === 'combo_meals' && '🍳 Breakfast + Dinner Combo Benefit'}
                               </span>
-                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-black font-sans ${
-                                camp.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-neutral-800 text-neutral-400'
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded-lg font-black font-sans ${
+                                camp.active ? 'bg-emerald-50 text-emerald-700 border border-emerald-150' : 'bg-zinc-100 text-zinc-500 border border-zinc-150'
                               }`}>
                                 {camp.active ? 'ACTIVE' : 'OFFLINE'}
                               </span>
                             </div>
-                            <p className="text-neutral-400 text-xs font-sans font-normal leading-relaxed">{camp.description}</p>
-                            <div className="flex items-center gap-4 text-[10px] text-neutral-500">
+                            <p className="text-zinc-500 text-xs font-sans font-normal leading-relaxed">{camp.description}</p>
+                            <div className="flex items-center gap-4 text-[10.5px] text-zinc-400 font-mono">
                               {camp.minAmount !== undefined && (
                                 <span>Min Spend: ₦{camp.minAmount.toLocaleString()}</span>
                               )}
@@ -1467,7 +1397,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                                 <span>Min Platters: {camp.requiredQty} portions</span>
                               )}
                               {camp.targetToppingId && (
-                                <span className="font-semibold text-neutral-400">Award Gift: {camp.targetToppingId}</span>
+                                <span className="font-semibold text-zinc-500">Award Gift: {camp.targetToppingId}</span>
                               )}
                             </div>
                           </div>
@@ -1477,15 +1407,15 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                               onClick={() => handleToggleCampaign(camp)}
                               className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
                                 camp.active 
-                                  ? 'bg-neutral-950 hover:bg-neutral-850 text-neutral-400 border-neutral-800' 
-                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white border-transparent'
+                                  ? 'bg-zinc-100 hover:bg-zinc-150 text-zinc-700 border-zinc-250' 
+                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white border-transparent shadow-xs'
                               }`}
                             >
                               {camp.active ? 'Deactivate' : 'Activate'}
                             </button>
                             <button
                               onClick={() => handleDeleteCampaign(camp.id)}
-                              className="p-2 bg-neutral-950 hover:bg-rose-500/10 text-neutral-500 hover:text-rose-500 border border-neutral-800 rounded-lg transition-all cursor-pointer"
+                              className="p-2 hover:bg-rose-50 text-zinc-405 hover:text-rose-600 border border-transparent hover:border-rose-200 rounded-lg transition-all cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1503,15 +1433,15 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
             {/* TAB D.2: TOPPINGS & SIDES MANAGER */}
             {/* ------------------------------------------------------------- */}
             {activeTab === "toppings" && (
-              <div className="space-y-8 animate-fade-in font-mono">
+              <div className="space-y-8 animate-fade-in text-zinc-800">
                 
                 {/* 1. Add / Edit Topping Card */}
-                <div className="p-6 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-6">
+                <div className="p-6 bg-white border border-zinc-200 rounded-3xl space-y-6 shadow-sm">
                   <div>
-                    <h3 className="text-xs uppercase text-neutral-300 font-bold">
-                      {editingTopping ? "Modify Side Meal / Add-On / Sport Extra Properties" : "Deploy New Side Meal / Add-On / Sport Extra Item"}
+                    <h3 className="text-xs uppercase text-zinc-500 font-bold tracking-wider">
+                      {editingTopping ? "Modify Side Meal / Add-On / Extra Properties" : "Deploy New Side Meal / Add-On / Extra Item"}
                     </h3>
-                    <p className="text-xs text-neutral-500 font-sans mt-0.5">
+                    <p className="text-xs text-zinc-500 font-sans mt-0.5">
                       Sides and add-ons are displayed dynamically in the woodfire builder platter drawer and order dispatches.
                     </p>
                   </div>
@@ -1520,7 +1450,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                     <div className="space-y-1.5 col-span-1 md:col-span-2">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Unique Topping ID (No spaces)</label>
+                          <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Unique Topping ID (No spaces)</label>
                           <input
                             type="text"
                             placeholder="e.g. plantain, extra_chicken"
@@ -1528,49 +1458,49 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                             disabled={!!editingTopping}
                             value={toppingForm.id}
                             onChange={(e) => setToppingForm(prev => ({ ...prev, id: e.target.value.toLowerCase().replace(/\s+/g, "_") }))}
-                            className="w-full p-3.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700 disabled:opacity-50 font-mono"
+                            className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none placeholder-zinc-400 disabled:opacity-50 font-mono focus:ring-1 focus:ring-[#FF7A00]"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Display Name / Title</label>
+                          <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Display Name / Title</label>
                           <input
                             type="text"
                             placeholder="e.g. Organic Salad"
                             required
                             value={toppingForm.name}
                             onChange={(e) => setToppingForm(prev => ({ ...prev, name: e.target.value }))}
-                            className="w-full p-3.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700 font-mono"
+                            className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none placeholder-zinc-400 font-sans focus:ring-1 focus:ring-[#FF7A00]"
                           />
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Price (₦)</label>
+                      <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Price (₦)</label>
                       <input
                         type="number"
                         required
                         value={toppingForm.price}
                         onChange={(e) => setToppingForm(prev => ({ ...prev, price: Number(e.target.value) }))}
-                        className="w-full p-3.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none font-mono"
+                        className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none font-mono focus:ring-1 focus:ring-[#FF7A00]"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Fallback Emoji Symbol</label>
+                      <label className="block text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Fallback Emoji Symbol</label>
                       <input
                         type="text"
                         placeholder="e.g. 🥗"
                         required
                         value={toppingForm.emoji}
                         onChange={(e) => setToppingForm(prev => ({ ...prev, emoji: e.target.value }))}
-                        className="w-full p-3.5 bg-neutral-950 border border-neutral-800 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700 font-mono"
+                        className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none placeholder-zinc-400 font-sans focus:ring-1 focus:ring-[#FF7A00]"
                       />
                     </div>
 
                     <div className="space-y-1.5 col-span-1 md:col-span-2">
-                      <span className="text-neutral-400 block tracking-wider font-extrabold uppercase text-[9px] mb-1">📷 Upload Image from Device</span>
-                      <div className="p-4 bg-neutral-950 rounded-xl border border-neutral-800 space-y-3">
+                      <span className="text-zinc-500 block tracking-wider font-extrabold uppercase text-[9px] mb-1">📷 Upload Image from Device</span>
+                      <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 space-y-3">
                         <div className="flex items-center gap-3">
                           <input
                             type="file"
@@ -1590,7 +1520,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                           />
                           <label
                             htmlFor="topping-image-upload"
-                            className="flex-1 text-center py-2.5 px-4 bg-neutral-900 border border-neutral-800 hover:border-[#FF7A00] text-neutral-300 font-medium rounded-lg text-xs cursor-pointer select-none transition-colors"
+                            className="flex-1 text-center py-2.5 px-4 bg-white border border-zinc-200 hover:border-[#FF7A00] text-zinc-700 font-medium rounded-xl text-xs cursor-pointer select-none transition-all shadow-3xs"
                           >
                             Choose Image (Computer/Phone)...
                           </label>
@@ -1598,7 +1528,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                             <button
                               type="button"
                               onClick={() => setToppingForm(prev => ({ ...prev, image: "" }))}
-                              className="px-3 py-2.5 bg-red-950 text-red-400 font-bold text-xs rounded-lg hover:bg-red-900"
+                              className="px-3 py-2.5 bg-red-50 text-red-600 font-bold text-xs rounded-xl hover:bg-red-100 transition-colors cursor-pointer"
                             >
                               Clear
                             </button>
@@ -1606,15 +1536,15 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                         </div>
 
                         {toppingForm.image ? (
-                          <div className="flex items-center gap-3 bg-neutral-900 p-2 rounded border border-neutral-800">
+                          <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-zinc-200 shadow-3xs">
                             <img
                               src={toppingForm.image}
                               alt="Topping payload thumbnail"
                               className="w-12 h-12 object-cover rounded"
                             />
                             <div>
-                              <span className="text-white block font-bold">Image loaded successfully</span>
-                              <span className="text-[10px] text-zinc-500 font-sans block truncate max-w-sm">Will render in place of '{toppingForm.emoji}' fallback emoji</span>
+                              <span className="text-zinc-800 block font-bold">Image loaded successfully</span>
+                              <span className="text-[10px] text-zinc-400 font-sans block truncate max-w-sm">Will render in place of '{toppingForm.emoji}' fallback emoji</span>
                             </div>
                           </div>
                         ) : null}
@@ -1624,7 +1554,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                     <div className="col-span-1 md:col-span-2 flex gap-3">
                       <button
                         type="submit"
-                        className="px-6 py-3 bg-[#FF7A00] hover:bg-orange-600 text-white font-black uppercase rounded-xl transition-all tracking-wider cursor-pointer flex-1 font-mono text-xs"
+                        className="px-6 py-3 bg-[#FF7A00] hover:bg-[#D62828] text-white font-extrabold uppercase rounded-2xl transition-all tracking-wider cursor-pointer flex-1 font-sans text-xs shadow-sm"
                       >
                         {editingTopping ? "Update & Sync Topping Properties" : "Deploy Dynamic Side / Add-On"}
                       </button>
@@ -1636,7 +1566,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                             setEditingTopping(null);
                             setToppingForm({ id: "", name: "", price: 0, emoji: "🥗", image: "" });
                           }}
-                          className="px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold uppercase rounded-xl cursor-pointer font-mono text-xs"
+                          className="px-4 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold uppercase rounded-2xl cursor-pointer text-xs transition-colors"
                         >
                           Cancel
                         </button>
@@ -1646,16 +1576,16 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                 </div>
 
                 {/* 2. Toppings List Grid */}
-                <div className="space-y-3">
-                  <span className="text-[10px] uppercase text-neutral-400 font-bold block tracking-wider">Currently Available Sides, Add-ons &amp; Extras ({toppings.length})</span>
+                <div className="space-y-3 pb-8">
+                  <span className="text-[10px] uppercase text-zinc-400 font-bold block tracking-wider">Currently Available Sides, Add-ons &amp; Extras ({toppings.length})</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {toppings.map((top) => (
                       <div 
                         key={top.id} 
-                        className="p-4 bg-neutral-900 border border-neutral-850 rounded-2xl flex flex-col justify-between gap-4 text-xs font-mono"
+                        className="p-4 bg-white border border-zinc-200 rounded-2xl flex flex-col justify-between gap-4 text-xs shadow-sm"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-neutral-950 border border-neutral-800 overflow-hidden flex items-center justify-center text-xl">
+                          <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-zinc-50 border border-zinc-150 overflow-hidden flex items-center justify-center text-xl">
                             {top.image ? (
                               <img src={top.image} className="w-full h-full object-cover" />
                             ) : (
@@ -1663,13 +1593,13 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                             )}
                           </div>
                           <div>
-                            <span className="font-extrabold text-white text-xs block line-clamp-1">{top.name}</span>
-                            <span className="text-zinc-500 text-[10px] block mt-0.5">ID: {top.id}</span>
-                            <span className="text-orange-500 font-extrabold text-xs block mt-1">₦{top.price.toLocaleString()}</span>
+                            <span className="font-bold text-zinc-900 text-xs block line-clamp-1">{top.name}</span>
+                            <span className="text-zinc-400 text-[10px] block font-mono mt-0.5">ID: {top.id}</span>
+                            <span className="text-rose-600 font-extrabold text-xs block mt-1">₦{top.price.toLocaleString()}</span>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 justify-end pt-2 border-t border-neutral-850">
+                        <div className="flex items-center gap-2 justify-end pt-2 border-t border-zinc-150">
                           <button
                             onClick={() => {
                               setEditingTopping(top);
@@ -1681,7 +1611,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                                 image: top.image || ""
                               });
                             }}
-                            className="p-2 bg-neutral-850 hover:bg-neutral-800 hover:text-white text-neutral-400 rounded-lg transition-all cursor-pointer"
+                            className="p-2 hover:bg-zinc-50 hover:text-zinc-900 text-zinc-400 border border-transparent hover:border-zinc-200 rounded-lg transition-all cursor-pointer"
                             title="Edit"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -1689,7 +1619,7 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                           
                           <button
                             onClick={() => handleDeleteTopping(top.id)}
-                            className="p-2 bg-neutral-850 hover:bg-rose-500/10 text-neutral-400 hover:text-rose-500 rounded-lg transition-all cursor-pointer"
+                            className="p-2 hover:bg-rose-50 text-zinc-400 hover:text-rose-600 border border-transparent hover:border-rose-200 rounded-lg transition-all cursor-pointer"
                             title="Delete"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1698,107 +1628,6 @@ export default function AdminConsole({ isAdminMode, onClose, onRefreshTrigger }:
                       </div>
                     ))}
                   </div>
-                </div>
-
-              </div>
-            )}
-
-            {/* ------------------------------------------------------------- */}
-            {/* TAB E: SUPABASE DB MANAGEMENT & MANUAL SCHEMAS */}
-            {/* ------------------------------------------------------------- */}
-            {activeTab === "supabase" && (
-              <div className="space-y-8 animate-fade-in font-mono text-xs leading-normal">
-                
-                <div className="p-6 bg-[#0c0c0c] border border-neutral-850 rounded-3xl space-y-6">
-                  
-                  <div className="flex items-start gap-4">
-                    <Database className="w-6 h-6 text-purple-400 shrink-0 mt-0.5" />
-                    <div>
-                      <h3 className="text-sm uppercase text-neutral-200 font-bold">Supabase Cloud Database Sync</h3>
-                      <p className="text-neutral-400 font-sans text-xs mt-1">
-                        If orders/menu changes aren't uploading to your cloud, it is due to missing tables structure on your Supabase Postgres Database instance.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-4">
-                    <span className="text-[#FF7A00] block text-[10px] uppercase tracking-wider font-extrabold">⚡ Step 1: Initialize SQL Schema on Supabase Setup</span>
-                    <p className="text-neutral-400 text-[11px] font-sans">
-                      Go to your <b>Supabase Dashboard</b> → <b>SQL Editor</b> → Paste the query below, and click <b>"Run"</b>. It builds tables map perfectly matched with West African code components!
-                    </p>
-
-                    <div className="relative">
-                      <pre className="p-4 rounded-xl bg-neutral-950 font-mono text-[9.5px] text-zinc-300 border border-neutral-850 overflow-x-auto max-h-48 leading-relaxed selection:bg-neutral-800">
-{`-- Create menu Table
-CREATE TABLE IF NOT EXISTS menu (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  category TEXT NOT NULL,
-  description TEXT,
-  "basePrice" NUMERIC NOT NULL,
-  calories TEXT,
-  "spicyLevel" INTEGER DEFAULT 1,
-  "plainImage" TEXT,
-  "dodoImage" TEXT,
-  features TEXT[]
-);
-
--- Create orders Table
-CREATE TABLE IF NOT EXISTS orders (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  address TEXT,
-  method TEXT NOT NULL,
-  time TEXT NOT NULL,
-  "dietaryNotes" TEXT,
-  "totalPrice" NUMERIC NOT NULL,
-  "customPlatterns_v2" JSONB,
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  status TEXT DEFAULT 'pending'
-);
-
--- Create discounts Table
-CREATE TABLE IF NOT EXISTS discounts (
-  code TEXT PRIMARY KEY,
-  percentage INTEGER NOT NULL,
-  active BOOLEAN DEFAULT TRUE
-);
-
--- Create toppings Table
-CREATE TABLE IF NOT EXISTS toppings (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  price NUMERIC NOT NULL,
-  emoji TEXT NOT NULL DEFAULT '🥗',
-  image TEXT
-);`}
-                      </pre>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-4">
-                    <span className="text-emerald-500 block text-[10px] uppercase tracking-wider font-extrabold">🌱 Step 2: Seed woodfire Dummy Food Data</span>
-                    <p className="text-neutral-400 text-[11px] font-sans">
-                      After running the SQL query above, click this button to automatically inject pre-rendered Nigerian firewood recipes and campaign coupon vouchers directly straight to Supabase!
-                    </p>
-
-                    <div>
-                      <button
-                        onClick={handleDeploySeed}
-                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-mono uppercase font-black text-[10.5px] rounded-xl transition-colors cursor-pointer"
-                      >
-                        Deploy Dummy Data & Seeding catalog
-                      </button>
-                    </div>
-
-                    {seedResult && (
-                      <pre className="p-3 bg-neutral-950 rounded-xl text-[9.5px] text-neutral-400 border border-neutral-850 whitespace-pre-wrap font-mono leading-normal">
-                        {seedResult}
-                      </pre>
-                    )}
-                  </div>
-
                 </div>
 
               </div>
@@ -1829,30 +1658,30 @@ CREATE TABLE IF NOT EXISTS toppings (
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              className="relative w-full max-w-2xl bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
             >
               
               {/* Header */}
-              <div className="p-6 border-b border-neutral-850 flex justify-between items-center select-none bg-neutral-950/40">
-                <h4 className="font-mono text-sm uppercase text-white font-black tracking-widest flex items-center gap-2">
-                  <Sliders className="text-[#FF7A00] w-4 h-4" />
+              <div className="p-6 border-b border-zinc-200 flex justify-between items-center select-none bg-zinc-50/50">
+                <h4 className="font-sans text-xs uppercase text-zinc-800 font-black tracking-widest flex items-center gap-2">
+                  <Sliders className="text-[#FF7A00] w-4.5 h-4.5" />
                   {editingItem ? `Modify Platter '${editingItem.name}'` : "Publish Custom Woodfire Recipe"}
                 </h4>
                 <button
                   onClick={() => setIsMenuModalOpen(false)}
-                  className="p-1.5 hover:bg-neutral-850 rounded-lg text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  className="p-1.5 hover:bg-zinc-100 rounded-lg text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Form Scroll core content */}
-              <form onSubmit={handleSubmitDish} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs font-mono">
+              <form onSubmit={handleSubmitDish} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-zinc-800">
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 leading-none">
                   
                   <div className="space-y-1.5">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[9px]">Recipe Unique ID</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[9px]">Recipe Unique ID</label>
                     <input
                       type="text"
                       placeholder="e.g. egusi_platter_2"
@@ -1860,39 +1689,39 @@ CREATE TABLE IF NOT EXISTS toppings (
                       disabled={!!editingItem}
                       value={dishForm.id}
                       onChange={(e) => setDishForm(prev => ({ ...prev, id: e.target.value.toLowerCase().replace(/\s+/g, "_") }))}
-                      className="w-full p-3.5 bg-neutral-950 border border-neutral-855 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700 disabled:opacity-50"
+                      className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none placeholder-zinc-400 disabled:opacity-50 focus:ring-1 focus:ring-[#FF7A00] font-mono"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[9px]">Human Readable Title</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[9px]">Human Readable Title</label>
                     <input
                       type="text"
                       placeholder="e.g. Seafood Jollof Masterpiece"
                       required
                       value={dishForm.name}
                       onChange={(e) => setDishForm(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full p-3.5 bg-neutral-950 border border-neutral-855 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700"
+                      className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none placeholder-zinc-400 focus:ring-1 focus:ring-[#FF7A00]"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[9px]">Naira Base Price (₦)</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[9px]">Naira Base Price (₦)</label>
                     <input
                       type="number"
                       required
                       value={dishForm.basePrice}
                       onChange={(e) => setDishForm(prev => ({ ...prev, basePrice: Number(e.target.value) }))}
-                      className="w-full p-3.5 bg-neutral-950 border border-neutral-855 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none"
+                      className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none focus:ring-1 focus:ring-[#FF7A00] font-mono"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[9px]">Display Category</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[9px]">Display Category</label>
                     <select
                       value={dishForm.category}
                       onChange={(e) => setDishForm(prev => ({ ...prev, category: e.target.value as any }))}
-                      className="w-full p-3.5 bg-neutral-950 border border-neutral-855 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none appearance-none cursor-pointer"
+                      className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none appearance-none cursor-pointer focus:ring-1 focus:ring-[#FF7A00]"
                     >
                       <option value="main_meals">Main Foods / Jollof / Swallow</option>
                       <option value="shawarma">Shawarma Wraps</option>
@@ -1905,18 +1734,18 @@ CREATE TABLE IF NOT EXISTS toppings (
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[9px]">Measure Calories Content</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[9px]">Measure Calories Content</label>
                     <input
                       type="text"
                       placeholder="e.g. 620 kcal"
                       value={dishForm.calories}
                       onChange={(e) => setDishForm(prev => ({ ...prev, calories: e.target.value }))}
-                      className="w-full p-3.5 bg-neutral-950 border border-neutral-855 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700"
+                      className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none placeholder-zinc-400 focus:ring-1 focus:ring-[#FF7A00]"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[9px]">Spicy Heat Scale (1-5)</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[9px]">Spicy Heat Scale (1-5)</label>
                     <div className="flex items-center gap-3 py-1.5">
                       <input
                         type="range"
@@ -1927,54 +1756,54 @@ CREATE TABLE IF NOT EXISTS toppings (
                         onChange={(e) => setDishForm(prev => ({ ...prev, spicyLevel: Number(e.target.value) }))}
                         className="flex-1 accent-[#FF7A00] cursor-pointer"
                       />
-                      <span className="text-orange-500 font-bold w-12 text-center text-sm">{dishForm.spicyLevel} / 5</span>
+                      <span className="text-orange-600 font-black w-12 text-center text-sm">{dishForm.spicyLevel} / 5</span>
                     </div>
                   </div>
 
                 </div>
 
                 <div className="space-y-1.5 leading-none">
-                  <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[9px]">Chef culinary remarks</label>
+                  <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[9px]">Chef culinary remarks</label>
                   <textarea
                     rows={2}
                     placeholder="Describe seasonings, ember style cooked, protein portions, or flavor triggers..."
                     required
                     value={dishForm.description}
                     onChange={(e) => setDishForm(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full p-3.5 bg-neutral-950 border border-neutral-855 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none resize-none placeholder-neutral-700"
+                    className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none resize-none placeholder-zinc-400 focus:ring-1 focus:ring-[#FF7A00]"
                   />
                 </div>
 
                 <div className="space-y-1.5 leading-none">
-                  <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[9px]">Dish Features / Tags (separated by comma)</label>
+                  <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[9px]">Dish Features / Tags (separated by comma)</label>
                   <input
                     type="text"
                     placeholder="e.g. Firewood baked, Heavy Crayfish, Double Beef"
                     value={dishForm.featureString}
                     onChange={(e) => setDishForm(prev => ({ ...prev, featureString: e.target.value }))}
-                    className="w-full p-3.5 bg-neutral-950 border border-neutral-855 focus:border-[#FF7A00] rounded-xl text-white focus:outline-none placeholder-neutral-700"
+                    className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 focus:outline-none placeholder-zinc-400 focus:ring-1 focus:ring-[#FF7A00]"
                   />
                 </div>
 
                 {/* IMAGE CHANGER ZONE (Presets List + Custom Web URL) */}
-                <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-855 space-y-4">
-                  <span className="text-neutral-400 block tracking-wider font-extrabold uppercase text-[9px]">🎨 DESIGN IMAGE MANAGER</span>
+                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 space-y-4">
+                  <span className="text-zinc-500 block tracking-wider font-extrabold uppercase text-[9px]">📷 COVER IMAGE LAYOUT MANAGER</span>
                   
-                  {/* Option 2: Custom Text Image URL */}
+                  {/* Option 1: Custom Text Image URL */}
                   <div className="space-y-1.5 leading-none">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[8.5px]">Option A: Custom Cover Image Web URL/Link</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[8.5px]">Option A: Custom Cover Image Web URL/Link</label>
                     <input
                       type="text"
                       placeholder="Paste cover photo URL from Unsplash or web storage..."
                       value={dishForm.plainImage}
                       onChange={(e) => setDishForm(prev => ({ ...prev, plainImage: e.target.value }))}
-                      className="w-full p-3 bg-neutral-900 border border-neutral-800 focus:border-[#FF7A00] rounded-lg text-white font-mono text-xs focus:outline-none"
+                      className="w-full p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#FF7A00]"
                     />
                   </div>
 
-                  {/* Option C: Local Computer/Phone File Upload */}
+                  {/* Option 2: Local Computer/Phone File Upload */}
                   <div className="space-y-1.5 leading-none">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[8.5px]">Option B: Upload Cover Image from Computer / Phone</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[8.5px]">Option B: Upload Cover Image from Computer / Phone</label>
                     <div className="flex gap-2">
                       <input
                         type="file"
@@ -1994,17 +1823,17 @@ CREATE TABLE IF NOT EXISTS toppings (
                       />
                       <label
                         htmlFor="dish-cover-upload"
-                        className="flex-1 text-center py-2.5 px-4 bg-neutral-900 border border-neutral-800 hover:border-[#FF7A00] text-neutral-300 font-medium rounded-lg text-xs cursor-pointer select-none transition-colors"
+                        className="flex-1 text-center py-2.5 px-4 bg-white border border-zinc-200 hover:border-[#FF7A00] text-zinc-700 font-medium rounded-xl text-xs cursor-pointer select-none transition-colors"
                       >
                         Choose Image (Computer/Phone)...
                       </label>
                     </div>
                   </div>
 
-                  {/* Option 1: System assets library gallery */}
+                  {/* Option 3: System assets library gallery */}
                   <div className="space-y-2 leading-none">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[8.5px]">Option B: Select from West African Firewood gallery assets ({DEFAULT_SYSTEM_PLATES.length})</label>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 h-36 overflow-y-auto p-1.5 border border-neutral-800 rounded-xl bg-neutral-900/60 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[8.5px]">Option C: Select from West African Firewood gallery assets ({DEFAULT_SYSTEM_PLATES.length})</label>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 h-36 overflow-y-auto p-1.5 border border-zinc-200 rounded-xl bg-white scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent">
                       {DEFAULT_SYSTEM_PLATES.map((pl, idx) => {
                         const isSelected = dishForm.plainImage === pl.path;
                         return (
@@ -2013,7 +1842,7 @@ CREATE TABLE IF NOT EXISTS toppings (
                             type="button"
                             onClick={() => handleSetImage(pl.path)}
                             className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-transform duration-200 active:scale-95 hover:border-[#FF7A00] cursor-pointer ${
-                              isSelected ? 'border-[#FF7A00] scale-102 shadow-md' : 'border-neutral-800'
+                              isSelected ? 'border-[#FF7A00] scale-102 shadow-md' : 'border-zinc-200'
                             }`}
                             title={pl.name}
                           >
@@ -2024,7 +1853,7 @@ CREATE TABLE IF NOT EXISTS toppings (
                               referrerPolicy="no-referrer"
                             />
                             {isSelected && (
-                              <div className="absolute inset-0 bg-neutral-950/20 flex items-center justify-center">
+                              <div className="absolute inset-0 bg-white/20 flex items-center justify-center">
                                 <span className="bg-[#FF7A00] rounded-full p-0.5"><CheckCircle className="w-3.5 h-3.5 text-white" /></span>
                               </div>
                             )}
@@ -2036,14 +1865,14 @@ CREATE TABLE IF NOT EXISTS toppings (
 
                   {/* Optional Side-dish image with plantain dodo */}
                   <div className="space-y-1.5 leading-none">
-                    <label className="text-neutral-500 font-bold block uppercase tracking-wider text-[8.5px]">Optional: Plate Image with dodo plantain toppings (Link or upload)</label>
+                    <label className="text-zinc-400 font-bold block uppercase tracking-wider text-[8.5px]">Optional: Plate Image with dodo plantain toppings (Link or upload)</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="Paste cover photo with dodo plantain addon URL..."
                         value={dishForm.dodoImage}
                         onChange={(e) => setDishForm(prev => ({ ...prev, dodoImage: e.target.value }))}
-                        className="flex-1 p-3 bg-neutral-900 border border-neutral-800 focus:border-[#FF7A00] rounded-lg text-white font-mono text-xs focus:outline-none placeholder-neutral-700"
+                        className="flex-1 p-3 bg-white border border-zinc-200 focus:border-[#FF7A00] rounded-xl text-zinc-800 font-mono text-xs focus:outline-none placeholder-zinc-450 focus:ring-1 focus:ring-[#FF7A00]"
                       />
                       <input
                         type="file"
@@ -2063,7 +1892,7 @@ CREATE TABLE IF NOT EXISTS toppings (
                       />
                       <label
                         htmlFor="dish-dodo-upload"
-                        className="py-2.5 px-4 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 text-xs rounded-lg cursor-pointer flex items-center justify-center font-bold"
+                        className="py-2.5 px-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs rounded-xl cursor-pointer flex items-center justify-center font-bold"
                       >
                         Upload
                       </label>
@@ -2072,8 +1901,8 @@ CREATE TABLE IF NOT EXISTS toppings (
 
                   {/* Image render test preview */}
                   {dishForm.plainImage && (
-                    <div className="flex items-center gap-4 bg-neutral-900/50 p-3 rounded-lg border border-neutral-850">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-neutral-800 bg-neutral-950">
+                    <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-zinc-200">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-zinc-150 bg-zinc-50">
                         <img
                           src={dishForm.plainImage}
                           alt="Live cover test thumbnail"
@@ -2085,8 +1914,8 @@ CREATE TABLE IF NOT EXISTS toppings (
                         />
                       </div>
                       <div>
-                        <span className="font-bold text-white block">Cover Image Render Test</span>
-                        <span className="text-[10px] text-neutral-500 block font-sans line-clamp-1 truncate select-all">{dishForm.plainImage}</span>
+                        <span className="font-bold text-zinc-900 block">Cover Image Render Test</span>
+                        <span className="text-[10px] text-zinc-400 block font-sans line-clamp-1 truncate select-all">{dishForm.plainImage}</span>
                       </div>
                     </div>
                   )}
@@ -2094,17 +1923,17 @@ CREATE TABLE IF NOT EXISTS toppings (
                 </div>
 
                 {/* Action button triggers */}
-                <div className="pt-6 border-t border-neutral-850 flex items-center justify-end gap-3 select-none">
+                <div className="pt-6 border-t border-zinc-200 flex items-center justify-end gap-3 select-none">
                   <button
                     type="button"
                     onClick={() => setIsMenuModalOpen(false)}
-                    className="px-5 py-3.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 font-bold rounded-xl transition-all uppercase text-[10.5px] tracking-wider cursor-pointer"
+                    className="px-5 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold rounded-2xl transition-all uppercase text-[10.5px] tracking-wider cursor-pointer font-sans"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-3.5 bg-gradient-to-tr from-[#D62828] to-[#FF7A00] text-white font-black rounded-xl transition-all uppercase text-[10.5px] tracking-widest shadow-lg cursor-pointer"
+                    className="px-6 py-3.5 bg-[#FF7A00] hover:bg-[#D62828] text-white font-extrabold rounded-2xl transition-all uppercase text-[10.5px] tracking-widest shadow-sm cursor-pointer font-sans"
                   >
                     {editingItem ? "Update Recipe details" : "Publish Dynamic Dish Product"}
                   </button>

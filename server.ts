@@ -999,8 +999,24 @@ app.get("/api/menu", async (req, res) => {
   try {
     const supabaseMenu = await querySupabase("menu?select=*");
     if (supabaseMenu && supabaseMenu.length > 0) {
-      // Overwrite or merge with local cache for real-time fidelity
-      dbStore.menu = supabaseMenu;
+      // Merge with local cache so we retain properties like soldOut/sold_out if they only exist locally
+      const mergedMenu = supabaseMenu.map((supItem: any) => {
+        const localItem = dbStore.menu.find((m: any) => m.id === supItem.id);
+        const merged = { ...supItem };
+        
+        // Retain soldOut property
+        if (localItem && localItem.hasOwnProperty("soldOut")) {
+          merged.soldOut = localItem.soldOut;
+        } else if (supItem.hasOwnProperty("sold_out")) {
+          merged.soldOut = !!supItem.sold_out;
+        } else if (supItem.hasOwnProperty("soldOut")) {
+          merged.soldOut = !!supItem.soldOut;
+        } else {
+          merged.soldOut = false;
+        }
+        return merged;
+      });
+      dbStore.menu = mergedMenu;
       saveData(dbStore);
     }
     res.json(dbStore.menu);
@@ -1274,12 +1290,26 @@ app.post("/api/menu", async (req, res) => {
 
   // Sync to Supabase Rest
   try {
-    await querySupabase("menu", {
-      method: "POST",
-      headers: { "Prefer": "resolution=merge-duplicates" },
-      body: JSON.stringify(newItem)
-    });
-    res.status(201).json({ success: true, item: newItem, supabaseSynced: true });
+    try {
+      await querySupabase("menu", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify(newItem)
+      });
+      res.status(201).json({ success: true, item: newItem, supabaseSynced: true });
+    } catch (dbErr: any) {
+      console.warn("Retrying post without soldOut field:", dbErr.message);
+      const sanitisedItem = { ...newItem };
+      delete sanitisedItem.soldOut;
+      delete sanitisedItem.sold_out;
+      
+      await querySupabase("menu", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify(sanitisedItem)
+      });
+      res.status(201).json({ success: true, item: newItem, supabaseSynced: true, columnWarning: "soldOut saved locally but not in Supabase menu table" });
+    }
   } catch (err: any) {
     res.status(201).json({ success: true, item: newItem, supabaseSynced: false, error: err.message });
   }
@@ -1302,11 +1332,27 @@ app.put("/api/menu/:id", async (req, res) => {
   try {
     const patchBody = { ...updatedData };
     delete patchBody.id; // do not patch primary key value
-    await querySupabase(`menu?id=eq.${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(patchBody)
-    });
-    res.json({ success: true, item: dbStore.menu[idx], supabaseSynced: true });
+    
+    try {
+      await querySupabase(`menu?id=eq.${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patchBody)
+      });
+      res.json({ success: true, item: dbStore.menu[idx], supabaseSynced: true });
+    } catch (dbErr: any) {
+      // If patching with soldOut/sold_out fails (e.g. column doesn't exist on Supabase yet),
+      // strip soldOut/sold_out and try sync again so standard fields still synchronize!
+      console.warn("Retrying patch without soldOut field:", dbErr.message);
+      const sanitisedPatchBody = { ...patchBody };
+      delete sanitisedPatchBody.soldOut;
+      delete sanitisedPatchBody.sold_out;
+      
+      await querySupabase(`menu?id=eq.${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(sanitisedPatchBody)
+      });
+      res.json({ success: true, item: dbStore.menu[idx], supabaseSynced: true, columnWarning: "soldOut saved locally but not in Supabase menu table" });
+    }
   } catch (err: any) {
     res.json({ success: true, item: dbStore.menu[idx], supabaseSynced: false, error: err.message });
   }

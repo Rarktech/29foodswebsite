@@ -23,6 +23,7 @@ export interface DishItem {
   plainImage: string;
   dodoImage?: string;
   features: string[];
+  soldOut?: boolean;
 }
 
 export interface ToppingItem {
@@ -756,6 +757,8 @@ export default function InteractiveMenu({
                       id={`dish-card-${dish.id}`}
                       onClick={() => handleSelectDish(dish.id)}
                       className={`p-4 rounded-3xl border text-left cursor-pointer transition-all duration-300 relative group select-none ${
+                        dish.soldOut ? 'opacity-80' : ''
+                      } ${
                         isSelected 
                           ? 'border-[#D62828] bg-red-50/10 shadow-md' 
                           : 'border-zinc-200 hover:border-zinc-300 bg-white'
@@ -769,6 +772,13 @@ export default function InteractiveMenu({
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           referrerPolicy="no-referrer"
                         />
+                        {dish.soldOut && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-3xs flex items-center justify-center">
+                            <span className="bg-red-600 text-white font-mono text-[9px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase border border-red-500 shadow-lg">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
                         <div className="absolute top-2.5 right-2.5 bg-black/80 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-mono text-white font-bold">
                           ₦{dish.basePrice.toLocaleString()}
                         </div>
@@ -1115,14 +1125,24 @@ export default function InteractiveMenu({
               </AnimatePresence>
 
               {/* Add to Tray Basket Action Button */}
-              <button
-                type="button"
-                onClick={handleAddPlatterToCart}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#FF7A00] to-[#D62828] hover:brightness-110 text-white font-mono text-[10px] uppercase font-bold tracking-wider transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:scale-[1.01] cursor-pointer mb-8"
-              >
-                <Plus className="w-4 h-4 text-white" />
-                Add Platter to Tray Basket (+₦{currentPriceTotal.toLocaleString()})
-              </button>
+              {activeDish?.soldOut ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-3.5 rounded-xl bg-zinc-200 text-zinc-500 font-mono text-[10px] uppercase font-bold tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-not-allowed mb-8"
+                >
+                  Out of Stock - Currently Unavailable
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAddPlatterToCart}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#FF7A00] to-[#D62828] hover:brightness-110 text-white font-mono text-[10px] uppercase font-bold tracking-wider transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:scale-[1.01] cursor-pointer mb-8"
+                >
+                  <Plus className="w-4 h-4 text-white" />
+                  Add Platter to Tray Basket (+₦{currentPriceTotal.toLocaleString()})
+                </button>
+              )}
 
               {/* YOUR TRAY BASKET LIST */}
               {cart.length > 0 && (
